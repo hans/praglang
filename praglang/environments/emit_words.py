@@ -75,7 +75,7 @@ class WordEmissionEnvironment(Env):
         if valid_prefix:
             if len(self._emitted) > 2 and emitted_str in self.vocab:
                 done = True
-                reward = float(len(self._emitted))
+                reward = float(len(self._emitted)) if self.sparse_rewards else 2.0
             elif not self.sparse_rewards:
                 reward = 1.0
         else:
