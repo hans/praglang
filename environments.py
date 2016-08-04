@@ -1,3 +1,4 @@
+from collections import Counter
 import sys
 
 import numpy as np
@@ -38,9 +39,22 @@ class WordEmissionEnvironment(Env):
     def action_space(self):
         return Discrete(len(self.chars))
 
-    def reset(self):
-        sys.stdout.flush()# DEV
+    def log_diagnostics(self, paths):
+        # Collect valid and invalid word trajectories.
+        seen_valid, seen_invalid = Counter(), Counter()
+        for path in paths:
+            char_idx_seq = path["actions"].nonzero()[1]
+            sampled_word = "".join(self.chars[idx] for idx in char_idx_seq)
+            if sampled_word in self.vocab:
+                seen_valid[sampled_word] += 1
+            else:
+                seen_invalid[sampled_word] += 1
 
+        print "% 4i valid (% 4i unique): %s" % (sum(seen_valid.values()), len(seen_valid), seen_valid.most_common(30))
+        print "% 4i invalid (% 4i unique): %s" % (sum(seen_invalid.values()), len(seen_invalid), seen_invalid.most_common(30))
+        sys.stdout.flush()
+
+    def reset(self):
         # Select a random start character.
         idx = np.random.randint(0, len(self.chars))
         self._emitted = [self.chars[idx]]
