@@ -1,5 +1,6 @@
 import numpy as np
 
+from rllab.misc import ext
 from rllab.spaces.base import Space
 
 
@@ -56,4 +57,9 @@ class DiscreteSequence(Space):
         raise NotImplementedError
 
     def new_tensor_variable(self, name, extra_dims):
-        raise NotImplementedError
+        # TODO what does this do?
+        return ext.new_tensor(
+                name=name,
+                ndim=extra_dims + 1,
+                dtype="uint8"
+            )
