@@ -13,19 +13,20 @@ from rllab.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
-from rllab.policies.categorical_gru_policy import CategoricalGRUPolicy
 
 from praglang.environments import WordEmissionEnvironment
+from praglang.policies import RecurrentCategoricalPolicy
 
 
 stub(globals())
 
 env = normalize(WordEmissionEnvironment("wordemit"), normalize_reward=True)
 
-policy = CategoricalGRUPolicy(
+policy = RecurrentCategoricalPolicy(
         env_spec=env.spec,
         hidden_sizes=(128,),
         state_include_action=False,
+        temperature=2,
 )
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)

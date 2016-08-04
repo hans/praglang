@@ -36,7 +36,7 @@ class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable)
         """
         assert isinstance(env_spec.action_space, Discrete)
         Serializable.quick_init(self, locals())
-        super(CategoricalGRUPolicy, self).__init__(env_spec)
+        super(RecurrentCategoricalPolicy, self).__init__(env_spec)
 
         assert len(hidden_sizes) == 1
 

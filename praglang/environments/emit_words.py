@@ -51,7 +51,10 @@ class WordEmissionEnvironment(Env):
                 seen_invalid[sampled_word] += 1
 
         print "% 4i valid (% 4i unique): %s" % (sum(seen_valid.values()), len(seen_valid), seen_valid.most_common(30))
+        print " ".join(seen_valid.keys())
         print "% 4i invalid (% 4i unique): %s" % (sum(seen_invalid.values()), len(seen_invalid), seen_invalid.most_common(30))
+        print " ".join(seen_invalid.keys())
+
         sys.stdout.flush()
 
     def reset(self):
