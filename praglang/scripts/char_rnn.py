@@ -1,3 +1,13 @@
+"""
+Learn a recurrent policy which outputs valid English character sequences.
+The environment rewards the agent for outputting valid prefixes, and the
+agent quickly learns a simple character-level English language model.
+
+Unfortunately the entropy of the action space is rather low. After ~20
+iterations policy outputs ~170 unique words; only 30-40 of them are valid.
+"""
+
+
 from rllab.algos.trpo import TRPO
 from rllab.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
@@ -5,7 +15,7 @@ from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
 from rllab.policies.categorical_gru_policy import CategoricalGRUPolicy
 
-from environments import WordEmissionEnvironment
+from praglang.environments import WordEmissionEnvironment
 
 
 stub(globals())
