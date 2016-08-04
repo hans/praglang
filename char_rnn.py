@@ -14,7 +14,7 @@ env = normalize(WordEmissionEnvironment("wordemit"), normalize_reward=True)
 
 policy = CategoricalGRUPolicy(
         env_spec=env.spec,
-        hidden_sizes=(64,),
+        hidden_sizes=(128,),
         state_include_action=False,
 )
 
