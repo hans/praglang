@@ -12,6 +12,8 @@ with open("wordsEn.txt", "r") as words_f:
 
 class WordEmissionEnvironment(Env):
 
+    sparse_rewards = False
+
     def __init__(self, *args, **kwargs):
         super(WordEmissionEnvironment, self).__init__(*args, **kwargs)
 
@@ -55,18 +57,17 @@ class WordEmissionEnvironment(Env):
         valid_prefix = emitted_str in self._prefix_tree
 
         done = False
+        reward = 0.0
         if valid_prefix:
             if len(self._emitted) > 2 and emitted_str in self.vocab:
                 done = True
-                reward = 2.0
-            else:
+                reward = float(len(self._emitted))
+            elif not self.sparse_rewards:
                 reward = 1.0
         else:
             done = True
-            reward = -1.0
-
-        if done and valid_prefix:
-            print emitted_str
+            if not self.sparse_rewards:
+                reward = -1.0
 
         # Sample another random observation.
         # (Recurrent policy handles the state we care about..)
