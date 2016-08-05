@@ -25,7 +25,7 @@ MAPS = {
             "FFF",
             "FSF",
             "GFF",
-        ]
+        ],
         [
             "FFF",
             "FSG",
@@ -97,6 +97,11 @@ class GridWorldEnv(Env, Serializable):
         self.desc_str = desc_str
         # Map will be loaded in `self.reset`
 
+        sample_map = MAPS[self.desc_str]
+        if isinstance(sample_map[0], list):
+            sample_map = sample_map[0]
+        self.n_row, self.n_col = np.array(map(list, sample_map)).shape
+
         self.state = None
         self.domain_fig = None
 
@@ -107,9 +112,12 @@ class GridWorldEnv(Env, Serializable):
             fetched_map = random.choice(fetched_map)
 
         self.map_desc = np.array(map(list, fetched_map))
-        self.n_row, self.n_col = self.map_desc.shape
+        assert self.map_desc.shape == (self.n_row, self.n_col)
         (start_x,), (start_y,) = np.nonzero(self.map_desc == "S")
         self.start_state = start_x * self.n_col + start_y
+
+        (goal_x,), (goal_y,) = np.nonzero(self.map_desc == "G")
+        self.goal_state = goal_x * self.n_col + goal_y
 
         self.state = self.start_state
         return self.state

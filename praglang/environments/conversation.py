@@ -1,7 +1,8 @@
 from rllab.envs.base import Env, Step
-from rllab.envs.grid_world_env import GridWorldEnv
 from rllab.spaces import Box, Discrete, Product
 
+from praglang.agents.grid import GridWorldAgent
+from praglang.environments.grid import GridWorldEnv
 from praglang.spaces import DiscreteSequence
 
 
@@ -27,8 +28,7 @@ class SituatedConversationEnvironment(Env):
     space of the wrapped environment and the utterance space.
     """
 
-    def __init__(self, env=None, num_tokens=None, vocabulary=None,
-                 b_agent=None, *args, **kwargs):
+    def __init__(self, env=None, b_agent=None, *args, **kwargs):
         """
         Args:
             env: Environment which is being wrapped by this conversational
@@ -36,30 +36,24 @@ class SituatedConversationEnvironment(Env):
                 space. The RL agent will be able to take any of the actions
                 in this environment, or select a new action `utterance`,
                 managed by this class.
-            num_tokens: Maximum number of tokens in each utterance
-                transmitted from A to B or B to A.
-            vocab_size:
-            b_agent: Function mapping from A utterance (i.e., a discrete token
-                sequence encoded as a one-hot matrix) to B response (also a
-                discrete token sequence encoded as a one-hot matrix).
+            b_agent: `Agent` instance with which the learned agent will
+                interact.
         """
         super(SituatedConversationEnvironment, self).__init__(*args, **kwargs)
 
         if env is None:
-            env = GridWorldEnv()
-        if num_tokens is None:
-            num_tokens = 5
-        if vocabulary is None:
-            vocabulary = ["a", "b", "c", "d"]
+            env = GridWorldEnv("3x3")
+        if b_agent is None:
+            b_agent = GridWorldAgent()
 
         assert isinstance(env.action_space, Discrete)
         self._env = env
 
-        self.num_tokens = num_tokens
-        self.vocab = vocabulary
-        self.vocab_size = len(vocabulary)
+        self.num_tokens = b_agent.num_tokens
+        self.vocab = b_agent.vocab
+        self.vocab_size = len(self.vocab)
 
-        self._sequence_space = DiscreteSequence(self.vocab_size, num_tokens)
+        self._sequence_space = DiscreteSequence(self.vocab_size, self.num_tokens)
 
         # TODO: Should also join with observation space of wrapped env
         self._obs_space = Product(env.observation_space, self._sequence_space)
@@ -75,9 +69,6 @@ class SituatedConversationEnvironment(Env):
         # when the agent is taking actions that don't make use of this data?
         # Probably not.
         self._action_space = Product(action_space, self._sequence_space)
-
-        if b_agent is None:
-            b_agent = lambda _: self._sequence_space.sample()
 
         self._b_agent = b_agent
 
@@ -130,7 +121,7 @@ class SituatedConversationEnvironment(Env):
 
         # Send the utterance to B and get a response.
         self._sent.append(sequence)
-        response = self._b_agent(sequence)
+        response, reward = self._b_agent(self._env, sequence)
         self._received.append(response)
 
         observation = (self._last_wrapped_obs, response)
