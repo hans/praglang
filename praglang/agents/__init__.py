@@ -14,6 +14,10 @@ class Agent(object):
         raise NotImplementedError
 
     @property
+    def vocab_size(self):
+        return len(self.vocab)
+
+    @property
     def num_tokens(self):
         """
         Maximum number of tokens in an utterance sent/received by this agent.

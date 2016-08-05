@@ -1,105 +1,101 @@
 import lasagne.layers as L
 import lasagne.nonlinearities as NL
 import numpy as np
-import theano.tensor as TT
+import theano.tensor as T
 
 from rllab.core.lasagne_powered import LasagnePowered
 from rllab.core.network import GRUNetwork
 from rllab.core.serializable import Serializable
 from rllab.distributions.recurrent_categorical import RecurrentCategorical
 from rllab.misc import ext
-from rllab.spaces import Discrete
+from rllab.spaces import Discrete, Product
 from rllab.misc import special
 from rllab.misc.overrides import overrides
 from rllab.policies.base import StochasticPolicy
 
+from praglang.layers.decoder import GRUDecoderLayer
+from praglang.spaces import DiscreteSequence
 
-class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable):
+
+class RecurrentConversationAgentPolicy(StochasticPolicy, LasagnePowered, Serializable):
     """
-    Customized form of `rllab.policies.categorical_gru_policy.CategoricalGRUPolicy`.
-
-    Supports temperature sampling.
+    Recurrent policy which can either take an action or generate a token
+    sequence at each timestep.
     """
 
     def __init__(
             self,
             env_spec,
+            b_agent,
             hidden_sizes=(32,),
-            state_include_action=True,
-            hidden_nonlinearity=NL.tanh,
-            temperature=1.0):
+            embedding_size=32):
         """
-        :param env_spec: A spec for the env.
-        :param hidden_sizes: list of sizes for the fully connected hidden layers
-        :param hidden_nonlinearity: nonlinearity used for each hidden layer
-        :return:
+        Args:
+            env_spec: A spec for the env.
+            hidden_sizes: list of sizes for the fully connected hidden layers
+            hidden_nonlinearity: nonlinearity used for each hidden layer
         """
-        assert isinstance(env_spec.action_space, Discrete)
-        Serializable.quick_init(self, locals())
-        super(RecurrentCategoricalPolicy, self).__init__(env_spec)
+        assert isinstance(env_spec.action_space, Product)
+        assert isinstance(env_spec.action_space.components[0], Discrete)
+        assert isinstance(env_spec.action_space.components[1], DiscreteSequence)
 
+        Serializable.quick_init(self, locals())
+        super(RecurrentConversationAgentPolicy, self).__init__(env_spec)
+
+        # TODO remove this requirement
         assert len(hidden_sizes) == 1
 
-        if state_include_action:
-            input_shape = (env_spec.observation_space.flat_dim + env_spec.action_space.flat_dim,)
-        else:
-            input_shape = (env_spec.observation_space.flat_dim,)
+        # TODO
+        input_shape = (env_spec.observation_space.flat_dim,)
 
-        temperature_softmax = lambda logits: NL.softmax(1.0 / temperature * logits)
+        # Build input GRU network with embedding lookup.
+        l_inp = L.InputLayer((None, b_agent.num_tokens, b_agent.vocab_size),
+                             input_var=T.itensor3())
+        l_emb = L.EmbeddingLayer(l_inp, input_size=b_agent.vocab_size,
+                                 output_size=embedding_size)
+        l_enc_hid = L.GRULayer(l_emb, num_units=hidden_sizes[0],
+                               only_return_final=True)
 
-        prob_network = GRUNetwork(
-            input_shape=input_shape,
-            output_dim=env_spec.action_space.n,
-            hidden_dim=hidden_sizes[0],
-            hidden_nonlinearity=hidden_nonlinearity,
-            output_nonlinearity=temperature_softmax,
-        )
+        # Build output GRU network with embedding lookup.
+        # This network is run every timestep when the actor chooses to make an
+        # utterance.
+        # TODO also take in environment state
+        l_dec_out = L.DenseLayer(L.InputLayer((None, hidden_sizes[0])),
+                                 num_units=b_agent.vocab_size,
+                                 nonlinearity=NL.softmax, name="dec_out")
+        l_dec = GRUDecoderLayer(l_enc_hid, hidden_sizes[0], b_agent.num_tokens,
+                                l_emb, l_dec_out)
 
-        self._prob_network = prob_network
-        self._state_include_action = state_include_action
+        self._encoder_input = l_inp
+        self._decoder_output = l_dec
 
-        self._f_step_prob = ext.compile_function(
-            [
-                prob_network.step_input_layer.input_var,
-                prob_network.step_prev_hidden_layer.input_var
-            ],
-            L.get_output([
-                prob_network.step_output_layer,
-                prob_network.step_hidden_layer
-            ])
-        )
+        self._f_prob = ext.compile_function([l_inp.input_var],
+                                            L.get_output([l_dec]))
 
         self._prev_action = None
         self._prev_hidden = None
         self._hidden_sizes = hidden_sizes
-        self._dist = RecurrentCategorical(env_spec.action_space.n)
+        #self._dist = RecurrentCategorical(env_spec.action_space.n)
 
         self.reset()
 
-        LasagnePowered.__init__(self, [prob_network.output_layer])
+        LasagnePowered.__init__(self, [self._decoder_output])
 
     @overrides
     def dist_info_sym(self, obs_var, state_info_vars):
         n_batches, n_steps = obs_var.shape[:2]
         obs_var = obs_var.reshape((n_batches, n_steps, -1))
-        if self._state_include_action:
-            prev_action_var = state_info_vars["prev_action"]
-            all_input_var = TT.concatenate(
-                [obs_var, prev_action_var],
-                axis=2
-            )
-        else:
-            all_input_var = obs_var
+        all_input_var = obs_var
         return dict(
-            prob=L.get_output(
-                self._prob_network.output_layer,
-                {self._prob_network.input_layer: all_input_var}
+            p_utterance=L.get_output(
+                self._decoder_output,
+                {self._encoder_input: all_input_var}
             )
         )
 
     def reset(self):
-        self._prev_action = None
-        self._prev_hidden = self._prob_network.hid_init_param.get_value()
+        # TODO
+        pass
 
     # The return value is a pair. The first item is a matrix (N, A), where each
     # entry corresponds to the action value taken. The second item is a vector
@@ -107,27 +103,12 @@ class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable)
     # the current policy
     @overrides
     def get_action(self, observation):
-        if self._state_include_action:
-            if self._prev_action is None:
-                prev_action = np.zeros((self.action_space.flat_dim,))
-            else:
-                prev_action = self.action_space.flatten(self._prev_action)
-            all_input = np.concatenate([
-                self.observation_space.flatten(observation),
-                prev_action
-            ])
-        else:
-            all_input = self.observation_space.flatten(observation)
-            # should not be used
-            prev_action = np.nan
-        probs, hidden_vec = [x[0] for x in self._f_step_prob([all_input], [self._prev_hidden])]
-        action = special.weighted_sample(probs, xrange(self.action_space.n))
-        self._prev_action = action
-        self._prev_hidden = hidden_vec
-        agent_info = dict(prob=probs)
-        if self._state_include_action:
-            agent_info["prev_action"] = prev_action
-        return action, agent_info
+        all_input = self.observation_space.flatten(observation)
+        out_probs = self._f_prob([all_input])
+        actions = [special.weighted_sample(out_probs_t, xrange(self.b_agent.vocab_size))
+                   for out_probs_t in out_probs]
+        agent_info = dict(p_utterance=out_probs)
+        return actions, agent_info
 
     @property
     @overrides
@@ -136,11 +117,9 @@ class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable)
 
     @property
     def distribution(self):
+        raise ValueError("called")
         return self._dist
 
     @property
     def state_info_keys(self):
-        if self._state_include_action:
-            return ["prev_action"]
-        else:
-            return []
+        return []
