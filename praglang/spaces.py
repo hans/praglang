@@ -1,6 +1,6 @@
 import numpy as np
 
-from rllab.misc import ext
+from rllab.misc import ext, special
 from rllab.spaces.base import Space
 
 
