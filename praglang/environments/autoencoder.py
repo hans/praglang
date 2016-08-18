@@ -49,9 +49,8 @@ class AutoencoderEnvironment(Env):
         self._emitted = []
         self._input = input_ids
 
-        # Convert to one-hot.
-        self._observation = self.observation_space.flatten(input_ids)
-        return self._observation
+        # observation is always the input sequence
+        return self._input
 
     def step(self, action):
         self._emitted.append(action)
@@ -65,7 +64,7 @@ class AutoencoderEnvironment(Env):
             reward = 1.0
 
         # Constant observation -- policy only reads this once at start
-        return Step(observation=self._observation, reward=reward, done=done)
+        return Step(observation=self._input, reward=reward, done=done)
 
     def render(self):
         input_chars = [self.vocab[idx] for idx in self._input]

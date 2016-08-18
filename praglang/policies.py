@@ -1,6 +1,7 @@
 import lasagne.layers as L
 import lasagne.nonlinearities as NL
 import numpy as np
+import theano
 import theano.tensor as T
 
 from rllab.core.lasagne_powered import LasagnePowered
@@ -15,6 +16,7 @@ from rllab.policies.base import StochasticPolicy
 
 from praglang.layers.decoder import GRUDecoderLayer
 from praglang.spaces import DiscreteSequence
+from praglang.util import GRUStepLayer
 
 
 class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable):
@@ -146,6 +148,165 @@ class RecurrentCategoricalPolicy(StochasticPolicy, LasagnePowered, Serializable)
             return ["prev_action"]
         else:
             return []
+
+
+class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
+
+    def __init__(
+            self,
+            env_spec,
+            num_timesteps,
+            vocab_size,
+            hidden_sizes=(64,),
+            embedding_size=32,
+            hidden_nonlinearity=NL.tanh):
+        """
+        :param env_spec: A spec for the env.
+        :param hidden_sizes: list of sizes for the fully connected hidden layers
+        :param hidden_nonlinearity: nonlinearity used for each hidden layer
+        :return:
+        """
+        assert isinstance(env_spec.observation_space, DiscreteSequence)
+        assert isinstance(env_spec.action_space, Discrete)
+        Serializable.quick_init(self, locals())
+        super(EncoderDecoderPolicy, self).__init__(env_spec)
+
+        assert len(hidden_sizes) == 1
+        self.hidden_sizes = hidden_sizes
+
+        # Build input GRU network with embedding lookup.
+        l_inp = L.InputLayer((None, num_timesteps),
+                             input_var=T.imatrix(), name="enc_inp")
+        l_emb = L.EmbeddingLayer(l_inp, input_size=vocab_size,
+                                 output_size=embedding_size, name="enc_emb")
+        l_enc_hid = L.GRULayer(l_emb, num_units=hidden_sizes[0],
+                               only_return_final=True, name="enc_gru")
+
+        self._encoder_input = l_inp
+        self._encoder_output = l_enc_hid
+
+        # Build GRU decoder hidden and output layers
+        l_dec_out_prev = L.InputLayer(shape=(None,),
+                                      input_var=T.ivector(), name="dec_out_prev")
+        # Input representing encoder final state -- passed on from cached
+        # version of `l_enc_hid`
+        l_dec_ext_inp = L.InputLayer(shape=(None, hidden_sizes[0]),
+                                     input_var=T.matrix(), name="dec_ext_inp")
+        l_dec_hid_prev = L.InputLayer(shape=(None, hidden_sizes[0]),
+                                      input_var=T.matrix(), name="dec_hid_prev")
+        # GRU decoder embedding lookup + hidden step + output
+        l_dec_inp = L.EmbeddingLayer(l_dec_out_prev, input_size=vocab_size,
+                                     output_size=embedding_size, W=l_emb.W, name="dec_emb_lookup")
+        l_dec_hid = GRUStepLayer([l_dec_inp, l_dec_ext_inp, l_dec_hid_prev], name="gru_step")
+        l_dec_out = L.DenseLayer(l_dec_hid, num_units=vocab_size,
+                                 nonlinearity=NL.softmax, name="dec_out")
+
+        self._dec_out_prev, self._dec_hid_prev = l_dec_out_prev, l_dec_hid_prev
+        self._dec_ext_inp = l_dec_ext_inp
+        self._dec_hid, self._dec_out = l_dec_hid, l_dec_out
+
+        # TODO possible to combine into one dynamic fn?
+        self._f_encode = ext.compile_function(
+                [l_inp.input_var],
+                L.get_output(l_enc_hid))
+        self._f_decode_step = ext.compile_function(
+                [l_dec_out_prev.input_var, l_dec_ext_inp.input_var,
+                 l_dec_hid_prev.input_var],
+                L.get_output([l_dec_out, l_dec_hid]))
+
+        self._prev_action = None
+        self._encoded = None
+        self._prev_hidden = None
+        self._hidden_sizes = hidden_sizes
+        self._dist = RecurrentCategorical(env_spec.action_space.n)
+
+        self.reset()
+
+        LasagnePowered.__init__(self, [l_enc_hid, l_dec_out])
+
+    @overrides
+    def dist_info_sym(self, obs_var, state_info_vars):
+        print "===== DIST INFO SYM called"
+        for k, v in state_info_vars.iteritems():
+            print "\t", k, v, v.ndim
+        print "====="
+
+        # Encode input sequence
+        enc_hid_mem = L.get_output(
+                self._encoder_output,
+                {self._encoder_input: obs_var})
+
+        prev_action = state_info_vars["prev_action"]
+        prev_hidden = state_info_vars["prev_hidden"]
+
+        probs, hidden_vec = L.get_output(
+                [self._dec_out, self._dec_hid],
+                {
+                    # HACK: state info vars are all floats by rllab's dictate
+                    self._dec_out_prev: T.cast(prev_action, "int32"),
+                    self._dec_ext_inp: enc_hid_mem,
+                    self._dec_hid_prev: prev_hidden
+                })
+
+        return { "prob": probs }
+
+    def reset(self):
+        self._prev_action = None
+        self._encoded = None
+        self._prev_hidden = None
+
+    # The return value is a pair. The first item is a matrix (N, A), where each
+    # entry corresponds to the action value taken. The second item is a vector
+    # of length N, where each entry is the density value for that action, under
+    # the current policy
+    @overrides
+    def get_action(self, observation):
+        if observation.ndim == 1:
+            # Batch-ify
+            observation = observation[np.newaxis, :]
+
+        if self._prev_action is None:
+            self._prev_action = np.zeros((observation.shape[0],))
+        if self._encoded is None:
+            # Encode input sequence into batch of vectors
+            if observation.ndim == 1:
+                # Batch-ify
+                observation = observation[np.newaxis, :]
+            self._encoded = self._f_encode(observation)
+        if self._prev_hidden is None:
+            self._prev_hidden = np.zeros((observation.shape[0],
+                                          self.hidden_sizes[0]))
+
+        probs, hidden_vec = self._f_decode_step(self._prev_action,
+                                                self._encoded,
+                                                self._prev_hidden)
+        action = special.weighted_sample(probs, xrange(self.action_space.n))
+        self._prev_action = action if not isinstance(action, int) else [action]
+        self._prev_hidden = hidden_vec if hidden_vec.ndim == 2 else [hidden_vec]
+
+        agent_info = {
+            "prob": probs,
+            "prev_action": action,
+            "prev_hidden": hidden_vec,
+        }
+
+        return action, agent_info
+
+    @property
+    @overrides
+    def recurrent(self):
+        return True
+
+    @property
+    def distribution(self):
+        return self._dist
+
+    @property
+    def state_info_keys(self):
+        return [
+            ("prev_action", 0, "int32"),
+            ("prev_hidden", 2, theano.config.floatX)
+        ]
 
 
 class RecurrentConversationAgentPolicy(StochasticPolicy, LasagnePowered, Serializable):
