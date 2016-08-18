@@ -231,13 +231,23 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
             print "\t", k, v, v.ndim
         print "====="
 
-        # Encode input sequence
-        enc_hid_mem = L.get_output(
-                self._encoder_output,
-                {self._encoder_input: obs_var})
 
         prev_action = state_info_vars["prev_action"]
         prev_hidden = state_info_vars["prev_hidden"]
+
+        # Encode input sequence
+        # HACK: It's the same at all timesteps; just grab first timestep value
+        obs_var = obs_var[:, 0, :]
+        obs_var = theano.printing.Print("obs_var", ("shape",))(obs_var)
+        enc_hid_mem = L.get_output(
+                self._encoder_output,
+                {self._encoder_input: obs_var})
+        # Replicate the enc_hid_mem value over n_timesteps
+        assert prev_hidden.ndim == 3
+        assert enc_hid_mem.ndim == 2
+        enc_hid_mem = enc_hid_mem.reshape((enc_hid_mem.shape[0], 1, enc_hid_mem.shape[1]))
+        enc_hid_mem = T.tile(enc_hid_mem, (1, prev_hidden.shape[1], 1))
+        enc_hid_mem = theano.printing.Print("enc_hid_mem", ("shape",))(enc_hid_mem)
 
         probs, hidden_vec = L.get_output(
                 [self._dec_out, self._dec_hid],
@@ -261,28 +271,23 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
     # the current policy
     @overrides
     def get_action(self, observation):
-        if observation.ndim == 1:
-            # Batch-ify
-            observation = observation[np.newaxis, :]
-
         if self._prev_action is None:
-            self._prev_action = np.zeros((observation.shape[0],))
+            self._prev_action = 0
         if self._encoded is None:
             # Encode input sequence into batch of vectors
-            if observation.ndim == 1:
-                # Batch-ify
-                observation = observation[np.newaxis, :]
-            self._encoded = self._f_encode(observation)
+            self._encoded = self._f_encode([observation])[0]
         if self._prev_hidden is None:
-            self._prev_hidden = np.zeros((observation.shape[0],
-                                          self.hidden_sizes[0]))
+            self._prev_hidden = np.zeros(self.hidden_sizes[0])
 
-        probs, hidden_vec = self._f_decode_step(self._prev_action,
-                                                self._encoded,
-                                                self._prev_hidden)
+        print self._encoded.shape, self._prev_hidden.shape
+        ret = self._f_decode_step([self._prev_action],
+                                  [self._encoded],
+                                  [self._prev_hidden])
+        probs, hidden_vec = [x[0] for x in ret]
+
         action = special.weighted_sample(probs, xrange(self.action_space.n))
-        self._prev_action = action if not isinstance(action, int) else [action]
-        self._prev_hidden = hidden_vec if hidden_vec.ndim == 2 else [hidden_vec]
+        self._prev_action = action
+        self._prev_hidden = hidden_vec
 
         agent_info = {
             "prob": probs,
@@ -303,9 +308,13 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
     @property
     def state_info_keys(self):
+        return ["prev_action", "prev_hidden"]
+
+    @property
+    def state_info_metadata(self):
         return [
-            ("prev_action", 0, "int32"),
-            ("prev_hidden", 2, theano.config.floatX)
+            (1, "int32"),
+            (2, theano.config.floatX)
         ]
 
 

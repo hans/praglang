@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 from rllab.envs.base import Env, Step
+from rllab.spaces.box import Box
 from rllab.spaces.discrete import Discrete
 
 from praglang.spaces import DiscreteSequence
@@ -21,6 +22,7 @@ class AutoencoderEnvironment(Env):
     @property
     def observation_space(self):
         return DiscreteSequence(len(self.vocab), self.max_length)
+#        return Box(low=0, high=1, shape=(self.max_length, len(self.vocab)))
 
     @property
     def action_space(self):
