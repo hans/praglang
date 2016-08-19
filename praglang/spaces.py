@@ -35,10 +35,13 @@ class DiscreteSequence(Space):
         return hash(self._n) ^ hash(self._k)
 
     def flatten(self, x):
-        return special.to_onehot_n(x, self.n)
+        # HACK: always work on flattened representation
+        if x.ndim < 2:
+            return x
+        return special.from_onehot_n(x)
 
     def unflatten(self, x):
-        return special.from_onehot_n(x)
+        return x# special.to_onehot_n(x, self.n)
 
     def flatten_n(self, xs):
         print xs
@@ -57,7 +60,10 @@ class DiscreteSequence(Space):
         raise NotImplementedError
 
     def new_tensor_variable(self, name, extra_dims):
-        # TODO what does this do?
+        """
+        Return a batch representing values from this space.
+        `extra_dims` may be used to add e.g. recurrent / batch axes.
+        """
         return ext.new_tensor(
                 name=name,
                 ndim=extra_dims + 1,
