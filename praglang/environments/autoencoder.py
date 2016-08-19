@@ -11,7 +11,8 @@ from praglang.spaces import DiscreteSequence
 
 class AutoencoderEnvironment(Env):
 
-    sparse_rewards = False
+    stop_on_error = False
+    sparse_rewards = True
 
     def __init__(self, chars="abc", max_length=3, *args, **kwargs):
         super(AutoencoderEnvironment, self).__init__(*args, **kwargs)
@@ -64,6 +65,8 @@ class AutoencoderEnvironment(Env):
 
         if (done or not self.sparse_rewards) and action == expected:
             reward = 1.0
+        if action != expected and self.stop_on_error:
+            done = True
 
         # Constant observation -- policy only reads this once at start
         return Step(observation=self._input, reward=reward, done=done)
