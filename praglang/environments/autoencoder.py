@@ -35,10 +35,9 @@ class AutoencoderEnvironment(Env):
         for path in paths:
             observations, actions = path["observations"], path["actions"]
 
-            observed_str = [self.vocab[idx] for idx
-                            in self.observation_space.unflatten(observations)]
-            action_str = [self.vocab[idx] for idx
-                          in self.observation_space.unflatten(actions)]
+            observed_str = [self.vocab[idx] for idx in observations[0]]
+            action_str = [self.vocab[self.action_space.unflatten(action)]
+                          for action in actions]
 
             print format_str % ("".join(observed_str), "".join(action_str))
 

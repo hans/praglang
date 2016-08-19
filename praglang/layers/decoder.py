@@ -5,6 +5,7 @@ Defines recurrent decoder Lasagne layers.
 import theano
 from theano import tensor as T
 
+from lasagne import layers as L
 from lasagne import nonlinearities as NL
 from lasagne.layers import helper, MergeLayer
 from lasagne.layers.recurrent import Gate
@@ -126,7 +127,7 @@ class GRUDecoderLayer(MergeLayer):
                 "Gradient steps must be -1 when unroll_scan is true.")
 
         # Shape prep
-        self.input_dim = self.l_emb.output_shape[1]
+        self.input_dim = self.l_emb.output_shape[-1]
         self.vocab_size = self.l_out.output_shape[1]
         assert self.l_out.input_shape[1] == self.num_units
 
