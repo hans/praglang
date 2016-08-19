@@ -154,6 +154,22 @@ class GRUDecoderLayer(MergeLayer):
          self.b_hidden_update, self.nonlinearity_hid) = add_gate_params(
              hidden_update, 'hidden_update')
 
+        # Stack input weight matrices into a (num_inputs, 3*num_units)
+        # matrix, which speeds up computation
+        self.W_in_stacked = T.concatenate(
+            [self.W_in_to_resetgate, self.W_in_to_updategate,
+             self.W_in_to_hidden_update], axis=1)
+
+        # Same for hidden weight matrices
+        self.W_hid_stacked = T.concatenate(
+            [self.W_hid_to_resetgate, self.W_hid_to_updategate,
+             self.W_hid_to_hidden_update], axis=1)
+
+        # Stack gate biases into a (3*num_units) vector
+        self.b_stacked = T.concatenate(
+            [self.b_resetgate, self.b_updategate,
+             self.b_hidden_update], axis=0)
+
     def get_params(self, **tags):
         params = super(GRUDecoderLayer, self).get_params(**tags)
 
@@ -167,6 +183,68 @@ class GRUDecoderLayer(MergeLayer):
         batch_size = incoming_state_shape[0]
 
         return batch_size, self.num_timesteps, self.num_units
+
+    def _gru_step(self, x, h):
+        # When theano.scan calls step, input_n will be (n_batch, 3*num_units).
+        # We define a slicing function that extract the input to each GRU gate
+        def slice_w(x, n):
+            return x[:, n*self.num_units:(n+1)*self.num_units]
+
+        x = helper.get_output(self.l_emb, x)
+        x_gates = T.dot(x, self.W_in_stacked) + self.b_stacked
+
+        hid_gates = T.dot(h, self.W_hid_stacked)
+
+        if self.grad_clipping:
+            x_gates = theano.gradient.grad_clip(
+                x_gates, -self.grad_clipping, self.grad_clipping)
+            hid_gates = theano.gradient.grad_clip(
+                hid_gates, -self.grad_clipping, self.grad_clipping)
+
+        # Reset and update gates
+        r = slice_w(hid_gates, 0) + slice_w(x_gates, 0)
+        u = slice_w(hid_gates, 1) + slice_w(x_gates, 1)
+        r = self.nonlinearity_resetgate(r)
+        u = self.nonlinearity_updategate(u)
+
+        hidden_update = slice_w(x_gates, 2) + r * slice_w(hid_gates, 2)
+        if self.grad_clipping:
+            hidden_update = theano.gradient.grad_clip(
+                hidden_update, -self.grad_clipping, self.grad_clipping)
+        hidden_update = self.nonlinearity_hid(hidden_update)
+
+        # Compute (1 - u_t)h_{t - 1} + u_t c_t
+        hid = (1 - u) * h + u * hidden_update
+
+        # Compute output distribution
+        out = helper.get_output(self.l_out, hid)
+
+        return out, hid
+
+
+    class GRUDecoderStepLayer(MergeLayer):
+        def __init__(self, decoder, **kwargs):
+            incomings = [L.InputLayer(shape=(None,),
+                                      input_var=T.ivector(), name="gru_step_x"),
+                         L.InputLayer(shape=(None, decoder.num_units),
+                                      input_var=T.matrix(), name="gru_step_h")]
+            super(GRUDecoderLayer.GRUDecoderStepLayer, self).__init__(incomings, **kwargs)
+
+            self.x_in, self.h_prev_in = incomings
+            self.decoder = decoder
+
+        def get_output_shape_for(self, input_shapes):
+            x_shape, h_shape = input_shapes
+            assert x_shape[0] == h_shape[0]
+            return h_shape, x_shape
+
+        def get_output_for(self, inputs, **kwargs):
+            x, h = inputs
+            return self.decoder._gru_step(x, h)
+
+    def get_step_layer(self, name=None):
+        return self.GRUDecoderStepLayer(self, name=name or "%s/step" % self.name)
+
 
     def get_output_for(self, inputs, **kwargs):
         """
@@ -201,75 +279,24 @@ class GRUDecoderLayer(MergeLayer):
 
         batch_size = hid_init.shape[0]
 
-        # Stack input weight matrices into a (num_inputs, 3*num_units)
-        # matrix, which speeds up computation
-        W_in_stacked = T.concatenate(
-            [self.W_in_to_resetgate, self.W_in_to_updategate,
-             self.W_in_to_hidden_update], axis=1)
-
-        # Same for hidden weight matrices
-        W_hid_stacked = T.concatenate(
-            [self.W_hid_to_resetgate, self.W_hid_to_updategate,
-             self.W_hid_to_hidden_update], axis=1)
-
-        # Stack gate biases into a (3*num_units) vector
-        b_stacked = T.concatenate(
-            [self.b_resetgate, self.b_updategate,
-             self.b_hidden_update], axis=0)
-
-        # When theano.scan calls step, input_n will be (n_batch, 3*num_units).
-        # We define a slicing function that extract the input to each GRU gate
-        def slice_w(x, n):
-            return x[:, n*self.num_units:(n+1)*self.num_units]
-
         # Create single recurrent computation step function
         # input__n is the n'th vector of the input
         def step(out_previous, hid_previous, *args):
             # Look up embedding vectors from previous output.
             emb_idxs = T.argmax(out_previous, axis=1)
-            input_n = helper.get_output(self.l_emb, emb_idxs)
 
-            # Compute W_{hr} h_{t - 1}, W_{hu} h_{t - 1}, and W_{hc} h_{t - 1}
-            hid_input = T.dot(hid_previous, W_hid_stacked)
-
-            if self.grad_clipping:
-                input_n = theano.gradient.grad_clip(
-                    input_n, -self.grad_clipping, self.grad_clipping)
-                hid_input = theano.gradient.grad_clip(
-                    hid_input, -self.grad_clipping, self.grad_clipping)
-
-            # Reset and update gates
-            resetgate = slice_w(hid_input, 0) + slice_w(input_n, 0)
-            updategate = slice_w(hid_input, 1) + slice_w(input_n, 1)
-            resetgate = self.nonlinearity_resetgate(resetgate)
-            updategate = self.nonlinearity_updategate(updategate)
-
-            # Compute W_{xc}x_t + r_t \odot (W_{hc} h_{t - 1})
-            hidden_update_in = slice_w(input_n, 2)
-            hidden_update_hid = slice_w(hid_input, 2)
-            hidden_update = hidden_update_in + resetgate*hidden_update_hid
-            if self.grad_clipping:
-                hidden_update = theano.gradient.grad_clip(
-                    hidden_update, -self.grad_clipping, self.grad_clipping)
-            hidden_update = self.nonlinearity_hid(hidden_update)
-
-            # Compute (1 - u_t)h_{t - 1} + u_t c_t
-            hid = (1 - updategate)*hid_previous + updategate*hidden_update
-
-            # Compute output distribution
-            out = helper.get_output(self.l_out, hid)
-
-            return hid, out
+            out, hid = self._gru_step(emb_idxs, hid_previous)
+            return out, hid
 
         def step_masked(mask_n, out_previous, hid_previous, *args):
-            hid, out = step(out_previous, hid_previous, *args)
+            out, hid = step(out_previous, hid_previous, *args)
 
             # Skip over any input with mask 0 by copying the previous
             # hidden state; proceed normally for any input with mask 1.
             hid = T.switch(mask_n, hid, hid_previous)
             out = T.switch(mask_n, out, out_previous)
 
-            return hid, out
+            return out, hid
 
         if mask is not None:
             # mask is given as (batch_size, seq_len). Because scan iterates
@@ -289,7 +316,7 @@ class GRUDecoderLayer(MergeLayer):
 
         if self.unroll_scan:
             # Explicitly unroll the recurrence instead of using scan
-            _, out = unroll_scan(
+            out, _ = unroll_scan(
                 fn=step_fun,
                 sequences=sequences,
                 outputs_info=[out_init, hid_init],
@@ -299,7 +326,7 @@ class GRUDecoderLayer(MergeLayer):
         else:
             # Scan op iterates over first dimension of input and repeatedly
             # applies the step function
-            _, out = theano.scan(
+            out, _ = theano.scan(
                 fn=step_fun,
                 sequences=sequences,
                 go_backwards=self.backwards,

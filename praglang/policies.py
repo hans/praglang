@@ -185,34 +185,28 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
         self._encoder_input = l_inp
         self._encoder_output = l_enc_hid
 
-        # Build GRU decoder hidden and output layers
-        l_dec_out_prev = L.InputLayer(shape=(None,),
-                                      input_var=T.ivector(), name="dec_out_prev")
-        # Input representing encoder final state -- passed on from cached
-        # version of `l_enc_hid`
-        l_dec_ext_inp = L.InputLayer(shape=(None, hidden_sizes[0]),
-                                     input_var=T.matrix(), name="dec_ext_inp")
-        l_dec_hid_prev = L.InputLayer(shape=(None, hidden_sizes[0]),
-                                      input_var=T.matrix(), name="dec_hid_prev")
-        # GRU decoder embedding lookup + hidden step + output
-        l_dec_inp = L.EmbeddingLayer(l_dec_out_prev, input_size=vocab_size,
-                                     output_size=embedding_size, W=l_emb.W, name="dec_emb_lookup")
-        l_dec_hid = GRUStepLayer([l_dec_inp, l_dec_ext_inp, l_dec_hid_prev], name="gru_step")
-        l_dec_out = L.DenseLayer(l_dec_hid, num_units=vocab_size,
-                                 nonlinearity=NL.softmax, name="dec_out")
+        # Build GRU decoder.
+        l_dec_hid_init = L.InputLayer((None, hidden_sizes[0]),
+                                      input_var=T.matrix())
+        l_dec_out = L.DenseLayer(L.InputLayer((None, hidden_sizes[0])),
+                                 num_units=vocab_size,
+                                 nonlinearity=NL.softmax,
+                                 name="dec_out")
+        l_decoder = GRUDecoderLayer(l_dec_hid_init, hidden_sizes[0],
+                                    num_timesteps, l_emb, l_dec_out)
 
-        self._dec_out_prev, self._dec_hid_prev = l_dec_out_prev, l_dec_hid_prev
-        self._dec_ext_inp = l_dec_ext_inp
-        self._dec_hid, self._dec_out = l_dec_hid, l_dec_out
+        l_decode_step = l_decoder.get_step_layer()
 
-        # TODO possible to combine into one dynamic fn?
+        self._l_dec_hid_init = l_dec_hid_init
+        self._l_decoder = l_decoder
+
         self._f_encode = ext.compile_function(
                 [l_inp.input_var],
                 L.get_output(l_enc_hid))
         self._f_decode_step = ext.compile_function(
-                [l_dec_out_prev.input_var, l_dec_ext_inp.input_var,
-                 l_dec_hid_prev.input_var],
-                L.get_output([l_dec_out, l_dec_hid]))
+                [l_decode_step.x_in.input_var,
+                 l_decode_step.h_prev_in.input_var],
+                L.get_output(l_decode_step))
 
         self._prev_action = None
         self._encoded = None
@@ -238,25 +232,12 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
         # Encode input sequence
         # HACK: It's the same at all timesteps; just grab first timestep value
         obs_var = obs_var[:, 0, :]
-        obs_var = theano.printing.Print("obs_var", ("shape",))(obs_var)
         enc_hid_mem = L.get_output(
                 self._encoder_output,
                 {self._encoder_input: obs_var})
-        # Replicate the enc_hid_mem value over n_timesteps
-        assert prev_hidden.ndim == 3
-        assert enc_hid_mem.ndim == 2
-        enc_hid_mem = enc_hid_mem.reshape((enc_hid_mem.shape[0], 1, enc_hid_mem.shape[1]))
-        enc_hid_mem = T.tile(enc_hid_mem, (1, prev_hidden.shape[1], 1))
-        enc_hid_mem = theano.printing.Print("enc_hid_mem", ("shape",))(enc_hid_mem)
 
-        probs, hidden_vec = L.get_output(
-                [self._dec_out, self._dec_hid],
-                {
-                    # HACK: state info vars are all floats by rllab's dictate
-                    self._dec_out_prev: T.cast(prev_action, "int32"),
-                    self._dec_ext_inp: enc_hid_mem,
-                    self._dec_hid_prev: prev_hidden
-                })
+        probs = L.get_output(self._l_decoder,
+                            { self._l_dec_hid_init: enc_hid_mem })
 
         return { "prob": probs }
 
@@ -265,10 +246,6 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
         self._encoded = None
         self._prev_hidden = None
 
-    # The return value is a pair. The first item is a matrix (N, A), where each
-    # entry corresponds to the action value taken. The second item is a vector
-    # of length N, where each entry is the density value for that action, under
-    # the current policy
     @overrides
     def get_action(self, observation):
         if self._prev_action is None:
@@ -277,11 +254,9 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
             # Encode input sequence into batch of vectors
             self._encoded = self._f_encode([observation])[0]
         if self._prev_hidden is None:
-            self._prev_hidden = np.zeros(self.hidden_sizes[0])
+            self._prev_hidden = self._encoded
 
-        print self._encoded.shape, self._prev_hidden.shape
         ret = self._f_decode_step([self._prev_action],
-                                  [self._encoded],
                                   [self._prev_hidden])
         probs, hidden_vec = [x[0] for x in ret]
 

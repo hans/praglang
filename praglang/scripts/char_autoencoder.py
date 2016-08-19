@@ -10,7 +10,7 @@ iterations policy outputs ~170 unique words; only 30-40 of them are valid.
 
 from rllab.algos.trpo import TRPO
 from rllab.algos.vpg import VPG
-from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
 
@@ -33,18 +33,19 @@ policy = EncoderDecoderPolicy(
         hidden_sizes=(128,),
 )
 
-baseline = LinearFeatureBaseline(env_spec=env.spec)
+baseline = ZeroBaseline(env.spec)
 
 
 algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50,#000,
+        batch_size=100,#5000,#50000,
         max_path_length=LENGTH,
         n_itr=50,
         discount=0.99,
         step_size=0.01,
+        debug_nan=True,
 )
 
 
