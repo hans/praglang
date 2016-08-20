@@ -14,6 +14,7 @@ from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
 
+from praglang.baselines import MovingAverageBaseline
 from praglang.environments import AutoencoderEnvironment
 from praglang.policies import EncoderDecoderPolicy
 
@@ -30,10 +31,10 @@ policy = EncoderDecoderPolicy(
         env_spec=env.spec,
         num_timesteps=LENGTH,
         vocab_size=len(VOCAB),
-        hidden_sizes=(128,),
+        hidden_sizes=(32,)
 )
 
-baseline = ZeroBaseline(env.spec)
+baseline = MovingAverageBaseline(env.spec)
 
 
 algo = TRPO(

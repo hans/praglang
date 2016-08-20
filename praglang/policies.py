@@ -180,7 +180,8 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
         l_emb = L.EmbeddingLayer(l_inp, input_size=vocab_size,
                                  output_size=embedding_size, name="enc_emb")
         l_enc_hid = L.GRULayer(l_emb, num_units=hidden_sizes[0],
-                               only_return_final=True, name="enc_gru")
+                               grad_clipping=1.0, only_return_final=True,
+                               name="enc_gru")
 
         self._encoder_input = l_inp
         self._encoder_output = l_enc_hid
@@ -193,7 +194,8 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
                                  nonlinearity=NL.softmax,
                                  name="dec_out")
         l_decoder = GRUDecoderLayer(l_dec_hid_init, hidden_sizes[0],
-                                    num_timesteps, l_emb, l_dec_out)
+                                    num_timesteps, l_emb, l_dec_out,
+                                    grad_clipping=1.0)
 
         l_decode_step = l_decoder.get_step_layer()
 
@@ -238,6 +240,7 @@ class EncoderDecoderPolicy(StochasticPolicy, LasagnePowered, Serializable):
 
         probs = L.get_output(self._l_decoder,
                             { self._l_dec_hid_init: enc_hid_mem })
+        probs = theano.printing.Print("probs")(probs)
 
         return { "prob": probs }
 

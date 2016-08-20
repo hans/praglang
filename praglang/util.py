@@ -30,7 +30,8 @@ class GRUStepLayer(L.MergeLayer):
         if len(incomings) > 2:
             # Multiple input values.
             all_inputs, hid_prev = incomings[:-1], incomings[-1]
-            input_layer = L.ConcatLayer(all_inputs, name="concat_in_gru_step")
+            input_layer = L.ConcatLayer(all_inputs, axis=-1,
+                                        name="concat_in_gru_step")
             incomings = [input_layer, hid_prev]
 
         super(GRUStepLayer, self).__init__(incomings, name=name)
