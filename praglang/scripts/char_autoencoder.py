@@ -1,22 +1,20 @@
 """
-Learn a recurrent policy which outputs valid English character sequences.
-The environment rewards the agent for outputting valid prefixes, and the
-agent quickly learns a simple character-level English language model.
-
-Unfortunately the entropy of the action space is rather low. After ~20
-iterations policy outputs ~170 unique words; only 30-40 of them are valid.
+Learn a character "bag"-autoencoder which maps from bags of input tokens to
+an output sequence. Any output sequence which is some ordering of the bag is
+a valid output.
 """
 
 
-from rllab.algos.trpo import TRPO
-from rllab.algos.vpg import VPG
+from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
+from sandbox.rocky.tf.algos.trpo import TRPO
+from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
 from praglang.baselines import MovingAverageBaseline
-from praglang.environments import AutoencoderEnvironment
-from praglang.policies import EncoderDecoderPolicy
+from praglang.environments import BagAutoencoderEnvironment
+from praglang.policies import RecurrentCategoricalPolicy
 
 
 stub(globals())
@@ -24,29 +22,31 @@ stub(globals())
 LENGTH = 3
 VOCAB = list("abcde")
 
-autoenc_env = AutoencoderEnvironment(VOCAB, LENGTH, "autoenc")
-env = normalize(autoenc_env, normalize_reward=True)
+env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"), normalize_reward=True)
 
-policy = EncoderDecoderPolicy(
+policy = RecurrentCategoricalPolicy(
+        name="policy",
         env_spec=env.spec,
-        num_timesteps=LENGTH,
-        vocab_size=len(VOCAB),
-        hidden_sizes=(32,)
+        hidden_dim=128,
+        state_include_action=False,
 )
 
-baseline = MovingAverageBaseline(env.spec)
+#baseline = MovingAverageBaseline(env.spec)
+baseline = ZeroBaseline(env.spec)
+#baseline = LinearFeatureBaseline(env.spec)
 
+optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 
 algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=100,#5000,#50000,
+        batch_size=50000,#100,#5000,#50000,
         max_path_length=LENGTH,
         n_itr=50,
         discount=0.99,
         step_size=0.01,
-        debug_nan=True,
+        optimizer=optimizer,
 )
 
 

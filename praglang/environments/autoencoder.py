@@ -3,9 +3,10 @@ import sys
 
 import numpy as np
 from rllab.envs.base import Env, Step
+from sandbox.rocky.tf.spaces.box import Box
 from sandbox.rocky.tf.spaces.discrete import Discrete
 
-from praglang.spaces import DiscreteSequence
+from praglang.spaces import DiscreteSequence, DiscreteBinaryBag
 
 
 
@@ -27,7 +28,7 @@ class BagAutoencoderEnvironment(Env):
 
     @property
     def observation_space(self):
-        return DiscreteBinaryBag(len(self.vocab))
+        return Box(low=0, high=1, shape=(len(self.vocab),)) #return DiscreteBinaryBag(len(self.vocab))
 
     @property
     def action_space(self):
@@ -42,14 +43,14 @@ class BagAutoencoderEnvironment(Env):
         input_val[idxs] = 1
 
         self._input = input_val
-        self._reference = set([self.vocab[idx] for idx in idxs])
+        self._reference = set(idxs)
         self._emitted = []
         return self._input
 
     def step(self, action):
         self._emitted.append(action)
 
-        done = len(self._emitted) == len(self._input)
+        done = len(self._emitted) == len(self._reference)
         if self.stop_on_error:
             done = done or action not in self._reference
 
@@ -60,9 +61,10 @@ class BagAutoencoderEnvironment(Env):
         return Step(observation=self._input, reward=reward, done=done)
 
     def render(self):
+        input_chars = [self.vocab[idx] for idx in self._reference]
         output_chars = [self.vocab[idx] for idx in self._emitted]
 
-        print "% 3s\t=>\t% 3s" % ("".join(sorted(self._reference)),
+        print "% 3s\t=>\t% 3s" % ("".join(sorted(input_chars)),
                                   "".join(sorted(output_chars)))
 
 

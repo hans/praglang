@@ -1,7 +1,60 @@
 import numpy as np
+import tensorflow as tf
 
 from rllab.misc import ext, special
 from rllab.spaces.base import Space
+
+
+class DiscreteBinaryBag(Space):
+    """
+    One-hot bag
+    {{0,1}}^n
+
+    i.e. samples are vectors where each cell is independent Bernoulli
+    """
+
+    def __init__(self, n):
+        self._n = n
+
+    @property
+    def n(self):
+        return self._n
+
+    def sample(self):
+        return np.random.randint(0, 2, size=self._n)
+
+    def contains(self, x):
+        return x.shape == (x,) and (x >= 0 and x <= 1).all()
+
+    def __repr__(self):
+        return "DiscreteBag(%i)" % self._n
+
+    def __eq__(self, other):
+        return self._n == other._n
+
+    def __hash__(self):
+        return hash(self._n)
+
+    def flatten(self, x):
+        # Flattened form is same as standard form
+        return x
+
+    def unflatten(self, x):
+        return x
+
+    def flatten_n(self, xs):
+        return np.array(xs)
+
+    def unflatten_n(self, xs):
+        raise NotImplementedError
+
+    @property
+    def flat_dim(self):
+        return self._n
+
+    def new_tensor_variable(self, name, extra_dims):
+        shape = (None,) * extra_dims + (self.flat_dim,)
+        return tf.placeholder(dtype=tf.uint8, shape=shape, name=name)
 
 
 class DiscreteSequence(Space):
