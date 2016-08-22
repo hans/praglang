@@ -12,7 +12,6 @@ from rllab.misc.instrument import stub, run_experiment_lite
 from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
-from praglang.baselines import MovingAverageBaseline
 from praglang.environments import BagAutoencoderEnvironment
 from praglang.policies import RecurrentCategoricalPolicy
 
@@ -31,7 +30,6 @@ policy = RecurrentCategoricalPolicy(
         state_include_action=False,
 )
 
-#baseline = MovingAverageBaseline(env.spec)
 baseline = ZeroBaseline(env.spec)
 #baseline = LinearFeatureBaseline(env.spec)
 
