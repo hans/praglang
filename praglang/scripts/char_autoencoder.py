@@ -39,7 +39,7 @@ algo = TRPO(
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=50000,#100,#5000,#50000,
+        batch_size=50000,
         max_path_length=LENGTH,
         n_itr=50,
         discount=0.99,
@@ -50,7 +50,7 @@ algo = TRPO(
 
 run_experiment_lite(
         algo.train(),
-        n_parallel=1,#5,
+        n_parallel=5,
         snapshot_mode="last",
         log_dir="./log/autoenc",
 )
