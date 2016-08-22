@@ -8,11 +8,12 @@ iterations policy outputs ~170 unique words; only 30-40 of them are valid.
 """
 
 
-from rllab.algos.trpo import TRPO
-from rllab.algos.vpg import VPG
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.envs.normalized_env import normalize
 from rllab.misc.instrument import stub, run_experiment_lite
+from sandbox.rocky.tf.algos.trpo import TRPO
+from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
 from praglang.environments import WordEmissionEnvironment
 from praglang.policies import RecurrentCategoricalPolicy
@@ -23,10 +24,11 @@ stub(globals())
 env = normalize(WordEmissionEnvironment("wordemit"), normalize_reward=True)
 
 policy = RecurrentCategoricalPolicy(
+        name="policy",
         env_spec=env.spec,
-        hidden_sizes=(128,),
+        hidden_dim=128,
         state_include_action=False,
-        temperature=2,
+        #temperature=2,
 )
 
 baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -41,6 +43,7 @@ algo = TRPO(
         n_itr=50,
         discount=0.99,
         step_size=0.01,
+        optimizer=ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 )
 
 

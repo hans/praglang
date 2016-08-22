@@ -4,7 +4,8 @@ import sys
 import numpy as np
 from rllab.envs.base import Env
 from rllab.envs.base import Step
-from rllab.spaces import Box, Discrete
+from sandbox.rocky.tf.spaces.discrete import Discrete
+from sandbox.rocky.tf.spaces.box import Box
 
 
 with open("wordsEn.txt", "r") as words_f:
