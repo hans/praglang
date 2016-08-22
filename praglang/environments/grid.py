@@ -2,9 +2,9 @@ import random
 
 import numpy as np
 
-from rllab.spaces import Discrete
 from rllab.envs.base import Env, Step
 from rllab.core.serializable import Serializable
+from sandbox.rocky.tf.spaces.discrete import Discrete
 
 MAPS = {
     "chain": [

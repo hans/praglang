@@ -1,14 +1,24 @@
+import numpy as np
+
 from rllab.envs.base import Env, Step
-from rllab.spaces import Box, Discrete, Product
+from sandbox.rocky.tf.spaces.box import Box
+from sandbox.rocky.tf.spaces.discrete import Discrete
+from sandbox.rocky.tf.spaces.product import Product
 
 from praglang.agents.grid import GridWorldAgent
 from praglang.environments.grid import GridWorldEnv
-from praglang.spaces import DiscreteSequence
+from praglang.spaces import DiscreteSequence, DiscreteBinaryBag
 
 
-# Constants indicating whether our agent most recently took an action in the
-# wrapped environment or made an utterance.
-WRAPPED, UTTER = 0, 1
+# Event identifiers. (Not the same thing as actions.)
+#
+# `WRAPPED` = action in wrapped environment
+# `UTTER` = utter a single token
+# `SEND` = send all tokens uttered and end turn
+WRAPPED = 0
+UTTER = 1
+SEND = 2
+RECEIVE = 3
 
 
 class SituatedConversationEnvironment(Env):
@@ -53,22 +63,20 @@ class SituatedConversationEnvironment(Env):
         self.vocab = b_agent.vocab
         self.vocab_size = len(self.vocab)
 
-        self._sequence_space = DiscreteSequence(self.vocab_size, self.num_tokens)
+        # Observations are a combination of observations from the wrapped
+        # environment and a representation of any utterance received from the
+        # agent.
+        self._obs_space = Product(env.observation_space,
+                                  DiscreteBinaryBag(self.vocab_size))
 
-        # TODO: Should also join with observation space of wrapped env
-        self._obs_space = Product(env.observation_space, self._sequence_space)
-
-        # The agent can choose to take any action in the wrapped env or to make
-        # an utterance. We add a single option to the discrete action space of
-        # the wrapped env in order to represent this "utterance" choice.
-        action_space = Discrete(env.action_space.n + 1)
-        # When the action "utterance" is chosen, the agent also needs to
-        # predict a distribution over token sequences.
+        # The agent can choose to take any action in the wrapped env, to add a
+        # single token to its message, or to send a message to the agent.
         #
-        # TODO: Does this play nicely with the built-in training algos, e.g.
-        # when the agent is taking actions that don't make use of this data?
-        # Probably not.
-        self._action_space = Product(action_space, self._sequence_space)
+        # First `N` actions correspond to taking an action in the wrapped env.
+        # Next `V` actions correspond to uttering a word from the vocabulary.
+        # Final action corresponds to sending the message.
+        action_space = Discrete(env.action_space.n + b_agent.vocab_size + 1)
+        self._action_space = action_space
 
         self._b_agent = b_agent
 
@@ -82,61 +90,75 @@ class SituatedConversationEnvironment(Env):
 
     def reset(self):
         # Reset tracking state.
+        self._message = []
         self._sent, self._received = [], []
-        self._wrapped_actions = []
-        self._last_action = WRAPPED
+
+        self._events = []
 
         # Reset wrapped env and pull an initial observation.
         self._last_wrapped_obs = self._env.reset()
 
-        # Sample an input sequence.
-        first_seq = self._sequence_space.sample()
-        self._received.append(first_seq)
+        # Add a dummy message to the history.
+        self._received.append(np.zeros((self.vocab_size,), dtype=np.uint8))
 
-        return (self._last_wrapped_obs, first_seq)
+        return (self._last_wrapped_obs, self._received[-1])
 
-    def step(self, (action, sequence)):
+    def step(self, action):
         """
         Args:
             action: A token sequence emitted by `A`.
         """
 
-        if action < self._env.action_space.n:
-            self._last_action = WRAPPED
-            self._wrapped_actions.append(action)
+        # Per-turn penalty
+        reward = -1
+        done = False
 
+        if action < self._env.action_space.n:
             # Agent took an action in wrapped env.
+            self._events.append((WRAPPED, action))
+
             wrapped_step = self._env.step(action)
             self._last_wrapped_obs = wrapped_step.observation
 
-            observation = (wrapped_step.observation, self._received[-1])
-            return Step(observation=observation, reward=wrapped_step.reward,
-                        done=wrapped_step.done)
+            reward += wrapped_step.reward
+            done = wrapped_step.done
+        elif action < self._env.action_space.n + self.vocab_size:
+            # Agent chose to output a token.
+            token_id = action - self._env.action_space.n
+            self._events.append((UTTER, token_id))
 
-        # If we're here, it means the agent has chosen to make an utterance.
-        self._last_action = UTTER
-        # 0 reward + certainly not done.
-        reward = 0.0
-        done = False
+            self._message.append(token_id)
 
-        # Send the utterance to B and get a response.
-        self._sent.append(sequence)
-        response, reward = self._b_agent(self._env, sequence)
-        self._received.append(response)
+            reward += 0.0
+        else:
+            # Agent chose to send the message.
+            self._sent.append(self._message)
+            self._events.append((SEND, self._message))
 
-        observation = (self._last_wrapped_obs, response)
-        return Step(observation=response, reward=reward, done=done)
+            # Send the message and get a response.
+            response, reward_delta = self._b_agent(self._env, self._message)
+            reward += reward_delta
+
+            self._received.append(response)
+            self._events.append((RECEIVE, response))
+
+            self._message = []
+
+        observation = (self._last_wrapped_obs, self._received[-1])
+        return Step(observation=observation, reward=reward, done=done)
 
     def render(self):
-        last_received_toks = [self.vocab[idx] for idx in self._received[-1]]
-        print "B: %s" % " ".join(last_received_toks)
-
-        if len(self._sent) == 0:
+        if len(self._events) == 0:
+            print "\n\n====================\n"
             return
 
-        if self._last_action == WRAPPED:
-            print "A took action %i" % self._wrapped_actions[-1]
-        else:
-            last_sent_toks = [self.vocab[idx] for idx in self._sent[-1]]
-            print "A: %s" % " ".join(last_sent_toks)
+        last_event, data = self._events[-1]
+        if last_event == WRAPPED:
+            print "A took action %i" % data
+        elif last_event == UTTER:
+            print "A: ", self.vocab[data]
+        elif last_event == RECEIVE:
+            send_event, send_data = self._events[-2]
+            print "A sends message \"%s\"" % "".join(self.vocab[idx] for idx in send_data)
+            print "B sends message \"%s\"" % "".join(self.vocab[idx] for idx in data)
 

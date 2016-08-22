@@ -23,8 +23,6 @@ class GridWorldAgent(Agent):
         # TODO: Handle padding / stop token?
         message_str = "".join(self.vocab[idx] for idx in message)
 
-        print message_str
-
         # TODO: build response
 
-        return message
+        return message, 0.0
