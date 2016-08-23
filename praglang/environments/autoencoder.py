@@ -34,6 +34,20 @@ class BagAutoencoderEnvironment(Env):
     def action_space(self):
         return Discrete(len(self.vocab))
 
+    def log_diagnostics(self, paths):
+        format_str = "%% %is => %% %is" % (self.max_length, self.max_length)
+
+        for path in paths:
+            observations, actions = path["observations"], path["actions"]
+
+            observed_str = [self.vocab[idx] for idx in observations[0].nonzero()[0]]
+            action_str = [self.vocab[self.action_space.unflatten(action)]
+                          for action in actions]
+
+            print format_str % ("".join(observed_str), "".join(action_str))
+
+        sys.stdout.flush()
+
     def reset(self):
         # Sample length, then randomly pick chars.
         length = np.random.randint(1, self.max_length + 1)
