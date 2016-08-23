@@ -72,7 +72,7 @@ class GridWorldMasterAgent(Agent):
                     # Out of bounds.
                     continue
 
-                if cell_type not in ["W", "H"]:
+                if cell_type not in ["H"]:
                     # Score by Manhattan distance
                     distance = np.abs(goal_coords - slave_coords).sum()
                     valid_directions.append((direction, distance))

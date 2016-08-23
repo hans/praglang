@@ -1,8 +1,10 @@
+from functools import partial
 import random
 
 import numpy as np
 
 from rllab.envs.base import Env, Step
+from rllab.misc import logger
 from sandbox.rocky.tf.spaces.box import Box
 from sandbox.rocky.tf.spaces.discrete import Discrete
 from sandbox.rocky.tf.spaces.product import Product
@@ -170,18 +172,24 @@ class SituatedConversationEnvironment(Env):
             print "A sends message \"%s\"" % "".join(self.vocab[idx] for idx in send_data)
             print "B sends message \"%s\"" % "".join(self.vocab[idx] for idx in data)
 
+    log_fn = partial(logger.log, with_prefix=False, with_timestamp=False)
+
     def log_diagnostics(self, paths):
-        # Pick a random path to display.
-        print "============== Random path:"
-        self.log_path(random.choice(paths))
-        print "=============="
+        l = self.log_fn
+
+        random_path = random.choice(paths)
+        l("============== Random path (returns %f):" % sum(random_path["rewards"]))
+        self.log_path(random_path, l)
+        l("==============")
 
         best_path = max(paths, key=lambda path: sum(path["rewards"]))
-        print "\n============== Best path (returns %f):" % sum(best_path["rewards"])
-        self.log_path(best_path)
-        print "=============="
+        l("\n============== Best path (returns %f):" % sum(best_path["rewards"]))
+        self.log_path(best_path, l)
+        l("==============")
 
-    def log_path(self, path):
+    def log_path(self, path, log_fn):
+        l = log_fn
+
         actions, observations = path["actions"], path["observations"]
         just_sent = False
         a_message = []
@@ -192,16 +200,16 @@ class SituatedConversationEnvironment(Env):
 
             if just_sent:
                 message_idxs = received_message.nonzero()[0]
-                print "B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs)
+                l("B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs))
                 just_sent = False
 
             if action < self._env.action_space.n:
-                print "A took action %i" % action
+                l("A took action %i" % action)
             elif action < self._env.action_space.n + self.vocab_size:
                 char = self.vocab[action - self._env.action_space.n]
-                print "A: ", char
+                l("A: %s" % char)
                 a_message.append(char)
             else:
-                print "A sent message \"%s\"" % "".join(a_message)
+                l("A sent message \"%s\"" % "".join(a_message))
                 just_sent = True
                 a_message = []
