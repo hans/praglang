@@ -174,10 +174,11 @@ class SituatedConversationEnvironment(Env):
     def log_diagnostics(self, paths):
         l = self.log_fn
 
-        random_path = random.choice(paths)
-        l("============== Random path (returns %f):" % sum(random_path["rewards"]))
-        self.log_path(random_path, l)
-        l("==============")
+        for _ in range(5):
+            random_path = random.choice(paths)
+            l("============== Random path (returns %f):" % sum(random_path["rewards"]))
+            self.log_path(random_path, l)
+            l("==============")
 
         best_path = max(paths, key=lambda path: sum(path["rewards"]))
         l("\n============== Best path (returns %f):" % sum(best_path["rewards"]))
