@@ -167,7 +167,7 @@ class GridWorldEnv(Env, Serializable):
             reward = 0
         elif next_state_type == 'G':
             done = True
-            reward = 1
+            reward = 100
         else:
             raise NotImplementedError
         self.state = next_state
