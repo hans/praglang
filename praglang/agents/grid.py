@@ -56,7 +56,7 @@ class GridWorldMasterAgent(Agent):
         slave_coords = np.array([slave_x, slave_y])
 
         # Just hard mapping for now. Yep.
-        if message_str == "whr":
+        if message_str == "wh":
             matched = True
 
             goal_x = env.goal_state / env.n_col
