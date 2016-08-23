@@ -142,9 +142,6 @@ class SituatedConversationEnvironment(Env):
             self._sent.append(self._message)
             self._events.append((SEND, self._message))
 
-            # Remove per-turn penalty.
-            reward = 0.0
-
             # Send the message and get a response.
             response, reward_delta = self._b_agent(self._env, self._message)
             reward += reward_delta
