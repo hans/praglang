@@ -32,6 +32,8 @@ class SituatedConversationEnvironment(Env):
     B is some fixed external resource (i.e., not a policy being learned)
     which accepts A's utterances and returns its own utterances. These may
     be a stochastic function of A's input.
+    B can also directly (through Python code) modify the state of the
+    environment.
 
     A can also take actions in the situated environment being wrapped by this
     class. A's action space thus consists of the product of the action

@@ -10,6 +10,10 @@ MAPS = {
     "chain": [
         "GFFFFFFFFFFFFFSFFFFFFFFFFFFFG"
     ],
+    "walled_chain": [
+        ["GWSWF"],
+        ["FWSWG"],
+    ],
     "3x3": [
         [
             "FFF",
@@ -88,7 +92,6 @@ class GridWorldEnv(Env, Serializable):
     W : wall
     H : hole (terminates episode)
     G : goal
-
 
     """
 
