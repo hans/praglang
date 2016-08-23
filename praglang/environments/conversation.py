@@ -176,24 +176,32 @@ class SituatedConversationEnvironment(Env):
         self.log_path(random.choice(paths))
         print "=============="
 
-        print "\n============== Best path:"
-        self.log_path(max(paths, key=lambda path: sum(path["rewards"])))
+        best_path = max(paths, key=lambda path: sum(path["rewards"]))
+        print "\n============== Best path (returns %f):" % sum(best_path["rewards"])
+        self.log_path(best_path)
         print "=============="
 
     def log_path(self, path):
         actions, observations = path["actions"], path["observations"]
+        just_sent = False
+        a_message = []
+
         for i, (observation, action) in enumerate(zip(observations, actions)):
             wrapped_obs, received_message = self.observation_space.unflatten(observation)
             action = self.action_space.unflatten(action)
 
-            if i > 0:
+            if just_sent:
                 message_idxs = received_message.nonzero()[0]
-                if len(message_idxs):
-                    print "B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs)
+                print "B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs)
+                just_sent = False
 
             if action < self._env.action_space.n:
                 print "A took action %i" % action
             elif action < self._env.action_space.n + self.vocab_size:
-                print "A: ", self.vocab[action - self._env.action_space.n]
+                char = self.vocab[action - self._env.action_space.n]
+                print "A: ", char
+                a_message.append(char)
             else:
-                print "A sent message"
+                print "A sent message \"%s\"" % "".join(a_message)
+                just_sent = True
+                a_message = []
