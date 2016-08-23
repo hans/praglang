@@ -36,7 +36,8 @@ class Agent(object):
 
         Returns:
             response: Token sequence directed at the agent who sent the
-                original message.
+                original message. A sequence of integer indexes into
+                `self.vocabulary`.
             reward: Reward that the sending agent should receive for sending
                 this message. 0.0 is a good default!
         """

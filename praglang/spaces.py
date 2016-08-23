@@ -56,6 +56,14 @@ class DiscreteBinaryBag(Space):
         shape = (None,) * extra_dims + (self.flat_dim,)
         return tf.placeholder(dtype=tf.uint8, shape=shape, name=name)
 
+    def from_idx_sequence(self, toks):
+        # Convert from a sequence of [idx1, idx2, idx3, ...] to bagged
+        # representation.
+        ret = np.zeros((self.n,), dtype=np.uint8)
+        for idx in toks:
+            ret[idx] = 1
+        return ret
+
 
 class DiscreteSequence(Space):
     """

@@ -5,7 +5,7 @@ from sandbox.rocky.tf.spaces.box import Box
 from sandbox.rocky.tf.spaces.discrete import Discrete
 from sandbox.rocky.tf.spaces.product import Product
 
-from praglang.agents.grid import GridWorldAgent
+from praglang.agents.grid import GridWorldMasterAgent
 from praglang.environments.grid import GridWorldEnv
 from praglang.spaces import DiscreteSequence, DiscreteBinaryBag
 
@@ -54,9 +54,9 @@ class SituatedConversationEnvironment(Env):
         super(SituatedConversationEnvironment, self).__init__(*args, **kwargs)
 
         if env is None:
-            env = GridWorldEnv("3x3")
+            env = GridWorldEnv("walled_chain")
         if b_agent is None:
-            b_agent = GridWorldAgent()
+            b_agent = GridWorldMasterAgent()
 
         assert isinstance(env.action_space, Discrete)
         self._env = env
@@ -68,8 +68,9 @@ class SituatedConversationEnvironment(Env):
         # Observations are a combination of observations from the wrapped
         # environment and a representation of any utterance received from the
         # agent.
+        self._received_message_space = DiscreteBinaryBag(self.vocab_size)
         self._obs_space = Product(env.observation_space,
-                                  DiscreteBinaryBag(self.vocab_size))
+                                  self._received_message_space)
 
         # The agent can choose to take any action in the wrapped env, to add a
         # single token to its message, or to send a message to the agent.
@@ -141,7 +142,7 @@ class SituatedConversationEnvironment(Env):
             response, reward_delta = self._b_agent(self._env, self._message)
             reward += reward_delta
 
-            self._received.append(response)
+            self._received.append(self._received_message_space.from_idx_sequence(response))
             self._events.append((RECEIVE, response))
 
             self._message = []

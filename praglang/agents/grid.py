@@ -2,7 +2,10 @@
 A conversational agent which operates in the `grid` environment.
 """
 
+import numpy as np
+
 from praglang.agents import Agent
+from praglang.environments.grid import GridWorldEnv
 
 
 class GridWorldMasterAgent(Agent):
@@ -39,6 +42,8 @@ class GridWorldMasterAgent(Agent):
     directions = {k: np.array(v) for k, v in directions.items()}
 
     def __call__(self, env, message):
+        assert isinstance(env, GridWorldEnv)
+
         # TODO: Handle padding / stop token?
         message_str = "".join(self.vocab[idx] for idx in message)
 
@@ -76,7 +81,7 @@ class GridWorldMasterAgent(Agent):
 
             # Calculate indicated point on map and retrieve the cell type
             point_coords = np.clip(slave_coords + increment,
-                                   [0, 0], env.n_row - 1, env.n_col - 1])
+                                   [0, 0], [env.n_row - 1, env.n_col - 1])
             point_type = env.map_desc[point_coords[0], point_coords[1]]
 
             if point_type == "W":

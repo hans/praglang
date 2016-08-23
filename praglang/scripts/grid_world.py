@@ -12,31 +12,47 @@ Its language is vaguely English-like, but aggressively abbreviated in order to
 make `A`'s task easier.
 """
 
+import tensorflow as tf
+
 from rllab.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
+from rllab.baselines.zero_baseline import ZeroBaseline
 from rllab.envs.normalized_env import normalize
-from rllab.envs.grid_world_env import GridWorldEnv
 from rllab.misc.instrument import stub, run_experiment_lite
+from sandbox.rocky.tf.algos.trpo import TRPO
+from sandbox.rocky.tf.core.network import MLP
+from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
-from praglang.agents.grid import GridWorldAgent
+from praglang.agents.grid import GridWorldMasterAgent, GridWorldSlaveAgent
 from praglang.environments.grid import GridWorldEnv
 from praglang.environments.conversation import SituatedConversationEnvironment
-from praglang.policies import RecurrentConversationAgentPolicy
+from praglang.policies import RecurrentCategoricalPolicy
+from praglang.util import uniform_init
 
 
 stub(globals())
 
-agent = GridWorldAgent()
+agent = GridWorldMasterAgent()
+EMBEDDING_DIM = 32
 
-base_env = GridWorldEnv("3x3")
-env = normalize(SituatedConversationEnvironment(base_env, agent))
-baseline = LinearFeatureBaseline(env)
+env = normalize(SituatedConversationEnvironment(b_agent=agent))
+#baseline = LinearFeatureBaseline(env)
+baseline = ZeroBaseline(env)
 
-policy = RecurrentConversationAgentPolicy(
+policy = RecurrentCategoricalPolicy(
+        name="policy",
         env_spec=env.spec,
-        b_agent=agent,
-        hidden_sizes=(128,),
+        hidden_dim=128,
+        # TODO: calc mean-pool embeddings and grid world input reprs separately
+        feature_network=MLP("embeddings_and_grid_world_feature_map",
+                            EMBEDDING_DIM, [],
+                            tf.identity, tf.identity,
+                            input_shape=(env.observation_space.flat_dim,),
+                            output_W_init=uniform_init),
+        state_include_action=False,
 )
+
+optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
 
 algo = TRPO(
         env=env,
@@ -47,6 +63,7 @@ algo = TRPO(
         n_itr=50,
         discount=0.99,
         step_size=0.01,
+        optimizer=optimizer,
 )
 
 run_experiment_lite(
