@@ -69,7 +69,7 @@ algo = TRPO(
 
 run_experiment_lite(
         algo.train(),
-        n_parallel=1,
+        n_parallel=5,
         snapshot_mode="last",
         log_dir="./log/grid_world",
 )
