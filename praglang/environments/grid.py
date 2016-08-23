@@ -4,6 +4,7 @@ import numpy as np
 
 from rllab.envs.base import Env, Step
 from rllab.core.serializable import Serializable
+from sandbox.rocky.tf.spaces.box import Box
 from sandbox.rocky.tf.spaces.discrete import Discrete
 
 MAPS = {
@@ -123,7 +124,7 @@ class GridWorldEnv(Env, Serializable):
         self.goal_state = goal_x * self.n_col + goal_y
 
         self.state = self.start_state
-        return self.state
+        return self.get_observation()
 
     @staticmethod
     def action_from_direction(d):
@@ -171,7 +172,8 @@ class GridWorldEnv(Env, Serializable):
         else:
             raise NotImplementedError
         self.state = next_state
-        return Step(observation=self.state, reward=reward, done=done)
+
+        return Step(observation=self.get_observation(), reward=reward, done=done)
 
     def get_possible_next_states(self, state, action):
         """
@@ -209,3 +211,50 @@ class GridWorldEnv(Env, Serializable):
     @property
     def observation_space(self):
         return Discrete(self.n_row * self.n_col)
+
+    def get_observation(self):
+        return self.state
+
+
+class SlaveGridWorldEnv(GridWorldEnv):
+
+    """
+    A grid-world setup where the slave is the agent in the grid world.
+
+    Observations are limited to the immediate surroundings of the slave.
+    """
+
+    # Cell types
+    CELL_TYPE_IDS = {
+        "G": 0, # goal
+        "W": 1, # wall
+        "H": 2, # hole
+        "F": 3, # free
+    }
+    N_TYPES = len(CELL_TYPE_IDS)
+
+    # Directions from which to read neighbor cell data
+    INCREMENTS = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
+
+    @property
+    def observation_space(self):
+        return Box(low=0., high=1.,
+                   shape=(len(self.INCREMENTS), self.N_TYPES))
+
+    def get_observation(self):
+        # Get state of cells in immediate surrounding.
+        x, y = self.state / self.n_col, self.state % self.n_col
+        coords = np.array([x, y])
+
+        observation = np.zeros((len(self.INCREMENTS), self.N_TYPES))
+        for i, increment in enumerate(self.INCREMENTS):
+            neighbor_coords = coords + increment
+            try:
+                cell_type = self.map_desc[neighbor_coords[0], neighbor_coords[1]]
+            except IndexError:
+                # Out of bounds.
+                continue
+            else:
+                observation[i, self.CELL_TYPE_IDS[cell_type]] = 1
+
+        return observation
