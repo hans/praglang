@@ -66,7 +66,12 @@ class GridWorldMasterAgent(Agent):
             valid_directions = []
             for direction, increment in self.directions.items():
                 cell_coords = slave_coords + increment
-                cell_type = env.map_desc[cell_coords[0], cell_coords[1]]
+                try:
+                    cell_type = env.map_desc[cell_coords[0], cell_coords[1]]
+                except IndexError:
+                    # Out of bounds.
+                    continue
+
                 if cell_type not in ["W", "H"]:
                     # Score by Manhattan distance
                     distance = np.abs(goal_coords - slave_coords).sum()
@@ -76,7 +81,7 @@ class GridWorldMasterAgent(Agent):
                 # Stuck!
                 raise RuntimeError
 
-            best_direction = min(valid_directions, key=lambda d, v: v)[0]
+            best_direction = min(valid_directions, key=lambda (d, v): v)[0]
             response = best_direction
         elif message_str.startswith("w") and len(message_str) >= 2:
             matched = True
