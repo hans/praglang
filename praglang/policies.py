@@ -83,7 +83,7 @@ class RecurrentCategoricalPolicy(StochasticPolicy, LayersPowered, Serializable):
             self.l_input = l_input
             self.state_include_action = state_include_action
 
-            flat_input_var = tf.placeholder(dtype=tf.float32, shape=(None, input_dim), name="flat_input")
+            flat_input_var = tf.placeholder(tf.float32, shape=(None, input_dim), name="flat_input")
             if feature_network is None:
                 feature_var = flat_input_var
             else:
