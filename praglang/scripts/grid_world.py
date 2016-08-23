@@ -70,5 +70,5 @@ run_experiment_lite(
         algo.train(),
         n_parallel=1,
         snapshot_mode="last",
-        log_dir="./log/grid_world/log",
+        log_dir="./log/grid_world",
 )
