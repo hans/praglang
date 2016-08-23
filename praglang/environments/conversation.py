@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 from rllab.envs.base import Env, Step
@@ -138,6 +140,9 @@ class SituatedConversationEnvironment(Env):
             self._sent.append(self._message)
             self._events.append((SEND, self._message))
 
+            # Remove per-turn penalty.
+            reward = 0.0
+
             # Send the message and get a response.
             response, reward_delta = self._b_agent(self._env, self._message)
             reward += reward_delta
@@ -165,3 +170,30 @@ class SituatedConversationEnvironment(Env):
             print "A sends message \"%s\"" % "".join(self.vocab[idx] for idx in send_data)
             print "B sends message \"%s\"" % "".join(self.vocab[idx] for idx in data)
 
+    def log_diagnostics(self, paths):
+        # Pick a random path to display.
+        print "============== Random path:"
+        self.log_path(random.choice(paths))
+        print "=============="
+
+        print "\n============== Best path:"
+        self.log_path(max(paths, key=lambda path: sum(path["rewards"])))
+        print "=============="
+
+    def log_path(self, path):
+        actions, observations = path["actions"], path["observations"]
+        for i, (observation, action) in enumerate(zip(observations, actions)):
+            wrapped_obs, received_message = self.observation_space.unflatten(observation)
+            action = self.action_space.unflatten(action)
+
+            if i > 0:
+                message_idxs = received_message.nonzero()[0]
+                if len(message_idxs):
+                    print "B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs)
+
+            if action < self._env.action_space.n:
+                print "A took action %i" % action
+            elif action < self._env.action_space.n + self.vocab_size:
+                print "A: ", self.vocab[action - self._env.action_space.n]
+            else:
+                print "A sent message"

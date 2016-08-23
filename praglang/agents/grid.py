@@ -48,6 +48,7 @@ class GridWorldMasterAgent(Agent):
         message_str = "".join(self.vocab[idx] for idx in message)
 
         response = ""
+        matched = False # Did the message make any sense?
         reward = 0.0
 
         slave_x = env.state / env.n_col
@@ -56,6 +57,8 @@ class GridWorldMasterAgent(Agent):
 
         # Just hard mapping for now. Yep.
         if message_str == "whr":
+            matched = True
+
             goal_x = env.goal_state / env.n_col
             goal_y = env.goal_state % env.n_col
             goal_coords = np.array([goal_x, goal_y])
@@ -63,7 +66,7 @@ class GridWorldMasterAgent(Agent):
             valid_directions = []
             for direction, increment in self.directions.items():
                 cell_coords = slave_coords + increment
-                cell_type = env.map_desc[cell_coords]
+                cell_type = env.map_desc[cell_coords[0], cell_coords[1]]
                 if cell_type not in ["W", "H"]:
                     # Score by Manhattan distance
                     distance = np.abs(goal_coords - slave_coords).sum()
@@ -75,24 +78,28 @@ class GridWorldMasterAgent(Agent):
 
             best_direction = min(valid_directions, key=lambda d, v: v)[0]
             response = best_direction
-        elif message_str.startswith("w"):
+        elif message_str.startswith("w") and len(message_str) >= 2:
+            matched = True
+
             direction = message_str[1]
-            increment = self.directions[direction]
+            increment = self.directions.get(direction, None)
+            if increment is not None:
+                # Calculate indicated point on map and retrieve the cell type
+                point_coords = np.clip(slave_coords + increment,
+                                    [0, 0], [env.n_row - 1, env.n_col - 1])
+                point_type = env.map_desc[point_coords[0], point_coords[1]]
 
-            # Calculate indicated point on map and retrieve the cell type
-            point_coords = np.clip(slave_coords + increment,
-                                   [0, 0], [env.n_row - 1, env.n_col - 1])
-            point_type = env.map_desc[point_coords[0], point_coords[1]]
+                if point_type == "W":
+                    env.map_desc[point_coords[0], point_coords[1]] = "F"
+                    response = message_str
+                else:
+                    # Slave asked for a wall destruction when there was no wall
+                    # in the specified direction.
+                    reward -= 0.5
 
-            if point_type == "W":
-                env.map_desc[point_coords] = "F"
-                response = message_str
-            else:
-                # Slave asked for a wall destruction when there was no wall in
-                # the specified direction.
-                reward = -1.0
-
-        response = [token2idx[token] for token in response]
+        if matched:
+            reward += 1.0
+        response = [self.token2idx[token] for token in response]
         return response, reward
 
 
