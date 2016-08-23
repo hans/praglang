@@ -37,8 +37,8 @@ EMBEDDING_DIM = 32
 grid_world = SlaveGridWorldEnv("walled_chain")
 agent = GridWorldMasterAgent()
 env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
-#baseline = LinearFeatureBaseline(env)
-baseline = ZeroBaseline(env)
+baseline = LinearFeatureBaseline(env)
+#baseline = ZeroBaseline(env)
 
 policy = RecurrentCategoricalPolicy(
         name="policy",
@@ -61,7 +61,7 @@ algo = TRPO(
         baseline=baseline,
         batch_size=50000,
         max_path_length=10,
-        n_itr=50,
+        n_itr=100,
         discount=0.99,
         step_size=0.01,
         optimizer=optimizer,
