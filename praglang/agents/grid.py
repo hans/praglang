@@ -34,10 +34,10 @@ class GridWorldMasterAgent(Agent):
     num_tokens = max(len(word) for word in words)
 
     directions = {
-        "n": [0, 1],
-        "s": [0, -1],
-        "e": [1, 0],
-        "w": [-1, 0],
+        "w": [0, 1],
+        "e": [0, -1],
+        "n": [1, 0],
+        "s": [-1, 0],
     }
     directions = {k: np.array(v) for k, v in directions.items()}
 

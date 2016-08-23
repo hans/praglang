@@ -24,7 +24,7 @@ from sandbox.rocky.tf.core.network import MLP
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
 from praglang.agents.grid import GridWorldMasterAgent, GridWorldSlaveAgent
-from praglang.environments.grid import GridWorldEnv
+from praglang.environments.grid import GridWorldEnv, SlaveGridWorldEnv
 from praglang.environments.conversation import SituatedConversationEnvironment
 from praglang.policies import RecurrentCategoricalPolicy
 from praglang.util import uniform_init
@@ -32,10 +32,11 @@ from praglang.util import uniform_init
 
 stub(globals())
 
-agent = GridWorldMasterAgent()
 EMBEDDING_DIM = 32
 
-env = normalize(SituatedConversationEnvironment(b_agent=agent))
+grid_world = SlaveGridWorldEnv("walled_chain")
+agent = GridWorldMasterAgent()
+env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
 #baseline = LinearFeatureBaseline(env)
 baseline = ZeroBaseline(env)
 

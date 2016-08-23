@@ -183,8 +183,6 @@ class GridWorldEnv(Env, Serializable):
         :param action: action
         :return: a list of pairs (s', p(s'|s,a))
         """
-        assert self.observation_space.contains(state)
-        assert self.action_space.contains(action)
 
         x = state / self.n_col
         y = state % self.n_col
@@ -251,10 +249,14 @@ class SlaveGridWorldEnv(GridWorldEnv):
             neighbor_coords = coords + increment
             try:
                 cell_type = self.map_desc[neighbor_coords[0], neighbor_coords[1]]
+                cell_type = self.CELL_TYPE_IDS[cell_type]
             except IndexError:
                 # Out of bounds.
                 continue
-            else:
-                observation[i, self.CELL_TYPE_IDS[cell_type]] = 1
+            except KeyError:
+                # Not a cell type we are tracking.
+                continue
+
+            observation[i, cell_type] = 1
 
         return observation
