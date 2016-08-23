@@ -114,7 +114,7 @@ class DiscreteSequence(Space):
 
     @property
     def flat_dim(self):
-        return self._n * self._k
+        return self._k
 
     def weighted_sample(self, weights):
         # TODO not sure if this is used?
@@ -125,8 +125,5 @@ class DiscreteSequence(Space):
         Return a batch representing values from this space.
         `extra_dims` may be used to add e.g. recurrent / batch axes.
         """
-        return ext.new_tensor(
-                name=name,
-                ndim=extra_dims + 1,
-                dtype="uint8"
-            )
+        shape = (None,) * extra_dims + (self.flat_dim,)
+        return tf.placeholder(dtype=tf.uint8, shape=shape, name=name)
