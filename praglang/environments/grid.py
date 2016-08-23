@@ -12,8 +12,34 @@ MAPS = {
         "GFFFFFFFFFFFFFSFFFFFFFFFFFFFG"
     ],
     "walled_chain": [
-        ["GWSWF"],
-        ["FWSWG"],
+        [
+            "HHHHH",
+            "HHHHH",
+            "GWSWF",
+            "HHHHH",
+            "HHHHH",
+        ],
+        [
+            "HHHHH",
+            "HHHHH",
+            "FWSWG",
+            "HHHHH",
+            "HHHHH",
+        ],
+        [
+            "HHGHH",
+            "HHWHH",
+            "HHSHH",
+            "HHWHH",
+            "HHFHH",
+        ],
+        [
+            "HHFHH",
+            "HHWHH",
+            "HHSHH",
+            "HHWHH",
+            "HHGHH",
+        ],
     ],
     "3x3": [
         [
