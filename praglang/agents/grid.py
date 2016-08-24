@@ -96,7 +96,7 @@ class GridWorldMasterAgent(Agent):
 
                 if point_type == "W":
                     env.map_desc[point_coords[0], point_coords[1]] = "F"
-                    response = message_str
+                    response = direction
                 else:
                     # Slave asked for a wall destruction when there was no wall
                     # in the specified direction.
