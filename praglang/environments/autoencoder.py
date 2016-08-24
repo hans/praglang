@@ -1,8 +1,10 @@
 from collections import Counter
+from functools import partial
 import sys
 
 import numpy as np
 from rllab.envs.base import Env, Step
+from rllab.misc import logger
 from sandbox.rocky.tf.spaces.box import Box
 from sandbox.rocky.tf.spaces.discrete import Discrete
 
@@ -34,6 +36,8 @@ class BagAutoencoderEnvironment(Env):
     def action_space(self):
         return Discrete(len(self.vocab))
 
+    log = partial(logger.log, with_prefix=False, with_timestamp=False)
+
     def log_diagnostics(self, paths):
         format_str = "%% %is => %% %is" % (self.max_length, self.max_length)
 
@@ -44,9 +48,7 @@ class BagAutoencoderEnvironment(Env):
             action_str = [self.vocab[self.action_space.unflatten(action)]
                           for action in actions]
 
-            print format_str % ("".join(observed_str), "".join(action_str))
-
-        sys.stdout.flush()
+            self.log(format_str % ("".join(observed_str), "".join(action_str)))
 
     def reset(self):
         # Sample length, then randomly pick chars.
