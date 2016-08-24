@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
+from rllab.core.serializable import Serializable
 from sandbox.rocky.tf.core import layers as L
 from sandbox.rocky.tf.core.layers_powered import LayersPowered
 
@@ -42,7 +43,7 @@ class MeanPoolEmbeddingLayer(L.Layer):
         return activation
 
 
-class MLPNetworkWithEmbeddings(LayersPowered):
+class MLPNetworkWithEmbeddings(LayersPowered, Serializable):
 
     """
     An MLP which takes some embeddings at the input layer. These should be
@@ -56,30 +57,34 @@ class MLPNetworkWithEmbeddings(LayersPowered):
                  hidden_b_init=tf.zeros_initializer,
                  output_W_init=L.xavier_init,
                  output_b_init=tf.zeros_initializer,
-                 input_var=None, input_layer=None, **kwargs):
-        with tf.variable_scope(name):
-            embeddings = tf.get_variable("embeddings", (vocab_size, embedding_size))
+                 has_other_input=True, input_var=None, input_layer=None,
+                 **kwargs):
+        Serializable.quick_init(self, locals())
 
+        with tf.variable_scope(name):
             if input_layer is None:
                 input_layer = L.InputLayer(shape=(None, input_dim),
                                            input_var=input_var, name="input")
             l_in = input_layer
 
-            # Slice apart
-            l_other_in = L.SliceLayer(l_in, "slice_other",
-                                      slice(0, input_dim - vocab_size + 1),
-                                      axis=-1)
-            l_emb_in = L.SliceLayer(l_in, "slice_emb",
-                                    slice(input_dim - vocab_size, input_dim),
-                                    axis=-1)
+            if has_other_input:
+                # Slice apart
+                l_other_in = L.SliceLayer(l_in, "slice_other",
+                                        slice(0, input_dim - vocab_size + 1),
+                                        axis=-1)
+                l_emb_in = L.SliceLayer(l_in, "slice_emb",
+                                        slice(input_dim - vocab_size, input_dim),
+                                        axis=-1)
 
-            # HACK: This is cheap with small embedding matrices but will not scale well..
-            # Find a better way to lookup from this representation + mean-pool
-            l_embs = MeanPoolEmbeddingLayer(l_emb_in, "embeddings", embedding_size)
+                # HACK: This is cheap with small embedding matrices but will not scale well..
+                # Find a better way to lookup from this representation + mean-pool
+                l_embs = MeanPoolEmbeddingLayer(l_emb_in, "embeddings", embedding_size)
 
-            l_merged = L.ConcatLayer([l_other_in, l_embs], "merge")
+                l_hidden_input = L.ConcatLayer([l_other_in, l_embs], "merge")
+            else:
+                l_hidden_input = l_in
 
-            hidden_layers = [l_merged]
+            hidden_layers = [l_hidden_input]
             for i, hidden_size in enumerate(hidden_sizes):
                 l_hid = L.DenseLayer(hidden_layers[-1], num_units=hidden_size,
                                      nonlinearity=hidden_nonlinearity,
@@ -95,7 +100,5 @@ class MLPNetworkWithEmbeddings(LayersPowered):
             self.input_layer = l_in
             self.input_var = l_in.input_var
             self.output_layer = l_out
-            self.layers = hidden_layers + [l_in, l_other_in, l_emb_in, l_embs,
-                                           l_merged, l_out]
 
             LayersPowered.__init__(self, l_out)

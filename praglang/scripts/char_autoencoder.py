@@ -4,61 +4,84 @@ an output sequence. Any output sequence which is some ordering of the bag is
 a valid output.
 """
 
+import copy
+
 import tensorflow as tf
 
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.zero_baseline import ZeroBaseline
+from rllab import config
 from rllab.envs.normalized_env import normalize
-from rllab.misc.instrument import stub, run_experiment_lite
+from rllab.misc.instrument import VariantGenerator, stub, run_experiment_lite
 from sandbox.rocky.tf.algos.trpo import TRPO
 from sandbox.rocky.tf.core import layers as L
-from sandbox.rocky.tf.core.network import MLP
 from sandbox.rocky.tf.optimizers.conjugate_gradient_optimizer import ConjugateGradientOptimizer, FiniteDifferenceHvp
 
 from praglang.environments import BagAutoencoderEnvironment
 from praglang.policies import RecurrentCategoricalPolicy
-from praglang.util import MeanPoolEmbeddingNetwork, uniform_init
+from praglang.util import MLPNetworkWithEmbeddings
 
 
 stub(globals())
 
-LENGTH = 3
-VOCAB = list("abcde")
-EMBEDDING_DIM = 32
+LENGTH = 5
+VOCAB = list("abcdefghijklmnopqrstuvwxyz")
 
 env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"), normalize_reward=True)
 
-policy = RecurrentCategoricalPolicy(
-        name="policy",
-        env_spec=env.spec,
-        hidden_dim=128,
-        feature_network=MLP("embeddings", EMBEDDING_DIM, [],
-                            tf.identity, tf.identity, input_shape=(len(VOCAB),),
-                            output_W_init=uniform_init),
-        state_include_action=False,
-)
 
-baseline = ZeroBaseline(env.spec)
-#baseline = LinearFeatureBaseline(env.spec)
+DEFAULTS = {
+    "batch_size": 5000,
+    "n_itr": 50,
+    "step_size": 0.01,
+    "policy_hidden_dim": 128,
+    "embedding_dim": 32,
+    "feature_dim": 128,
+    "feature_hidden_dims": (),
+}
 
-optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+config.LOG_DIR = "./log"
 
-algo = TRPO(
-        env=env,
-        policy=policy,
-        baseline=baseline,
-        batch_size=50000,
-        max_path_length=LENGTH,
-        n_itr=50,
-        discount=0.99,
-        step_size=0.01,
-        optimizer=optimizer,
-)
+def run_experiment(params):
+    params_base = copy.copy(DEFAULTS)
+    params_base.update(params)
+    params = params_base
+
+    policy = RecurrentCategoricalPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_dim=params["policy_hidden_dim"],
+            feature_network=MLPNetworkWithEmbeddings(
+                "embeddings", len(VOCAB), params["feature_dim"],
+                params["feature_hidden_dims"], tf.tanh, tf.tanh, len(VOCAB),
+                params["embedding_dim"], has_other_input=False),
+            state_include_action=False,
+    )
+
+    baseline = LinearFeatureBaseline(env.spec)
+
+    optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+
+    algo = TRPO(
+            env=env,
+            policy=policy,
+            baseline=baseline,
+            batch_size=params["batch_size"],
+            max_path_length=LENGTH,
+            n_itr=params["n_itr"],
+            discount=0.99,
+            step_size=params["step_size"],
+            optimizer=optimizer,
+    )
+
+    run_experiment_lite(
+            algo.train(),
+            n_parallel=5,
+            snapshot_mode="last",
+            exp_prefix="autoenc_new",
+            variant=params,
+    )
 
 
-run_experiment_lite(
-        algo.train(),
-        n_parallel=5,
-        snapshot_mode="last",
-        log_dir="./log/autoenc",
-)
+if __name__ == "__main__":
+    run_experiment({})
