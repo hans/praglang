@@ -27,7 +27,7 @@ from praglang.agents.grid import GridWorldMasterAgent, GridWorldSlaveAgent
 from praglang.environments.grid import GridWorldEnv, SlaveGridWorldEnv
 from praglang.environments.conversation import SituatedConversationEnvironment
 from praglang.policies import RecurrentCategoricalPolicy
-from praglang.util import uniform_init
+from praglang.util import MLPNetworkWithEmbeddings
 
 
 stub(globals())
@@ -44,12 +44,9 @@ policy = RecurrentCategoricalPolicy(
         name="policy",
         env_spec=env.spec,
         hidden_dim=128,
-        # TODO: calc mean-pool embeddings and grid world input reprs separately
-        feature_network=MLP("embeddings_and_grid_world_feature_map",
-                            EMBEDDING_DIM, [],
-                            tf.identity, tf.identity,
-                            input_shape=(env.observation_space.flat_dim,),
-                            output_W_init=uniform_init),
+        feature_network=MLPNetworkWithEmbeddings(
+            "feature_network", env.observation_space.flat_dim, 128,
+            [128], tf.tanh, tf.tanh, agent.vocab_size, EMBEDDING_DIM),
         state_include_action=False,
 )
 
