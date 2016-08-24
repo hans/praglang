@@ -62,10 +62,10 @@ def run_experiment(params):
     policy = RecurrentCategoricalPolicy(
             name="policy",
             env_spec=env.spec,
-            hidden_dim=praams["policy_hidden_dim"],
+            hidden_dim=params["policy_hidden_dim"],
             feature_network=MLPNetworkWithEmbeddings(
                 "feature_network", env.observation_space.flat_dim,
-                params["feature_dim"], params["feature_hidden_dim"],
+                params["feature_dim"], params["feature_hidden_dims"],
                 tf.tanh, tf.tanh, agent.vocab_size, params["embedding_dim"]),
             state_include_action=False,
     )
