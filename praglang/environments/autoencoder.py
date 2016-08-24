@@ -39,7 +39,7 @@ class BagAutoencoderEnvironment(Env):
     log = partial(logger.log, with_prefix=False, with_timestamp=False)
 
     def log_diagnostics(self, paths):
-        format_str = "%% %is => %% %is" % (self.max_length, self.max_length)
+        format_str = "%% %is => %% %is\t%%f" % (self.max_length, self.max_length)
 
         for path in paths:
             observations, actions = path["observations"], path["actions"]
@@ -48,7 +48,8 @@ class BagAutoencoderEnvironment(Env):
             action_str = [self.vocab[self.action_space.unflatten(action)]
                           for action in actions]
 
-            self.log(format_str % ("".join(observed_str), "".join(action_str)))
+            self.log(format_str % ("".join(observed_str), "".join(action_str),
+                                   sum(path["rewards"])))
 
     def reset(self):
         # Sample length, then randomly pick chars.
