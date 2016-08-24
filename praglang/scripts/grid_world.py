@@ -12,8 +12,11 @@ Its language is vaguely English-like, but aggressively abbreviated in order to
 make `A`'s task easier.
 """
 
+import copy
+
 import tensorflow as tf
 
+from rllab import config
 from rllab.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.baselines.zero_baseline import ZeroBaseline
@@ -38,35 +41,55 @@ grid_world = SlaveGridWorldEnv("walled_chain")
 agent = GridWorldMasterAgent()
 env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
 baseline = LinearFeatureBaseline(env)
-#baseline = ZeroBaseline(env)
 
-policy = RecurrentCategoricalPolicy(
-        name="policy",
-        env_spec=env.spec,
-        hidden_dim=128,
-        feature_network=MLPNetworkWithEmbeddings(
-            "feature_network", env.observation_space.flat_dim, 128,
-            [128], tf.tanh, tf.tanh, agent.vocab_size, EMBEDDING_DIM),
-        state_include_action=False,
-)
+DEFAULTS = {
+    "batch_size": 50000,
+    "n_itr": 100,
+    "step_size": 0.01,
+    "policy_hidden_dim": 128,
+    "embedding_dim": 32,
+    "feature_dim": 128,
+    "feature_hidden_dims": (128,),
+}
 
-optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+config.LOG_DIR = "./log"
 
-algo = TRPO(
-        env=env,
-        policy=policy,
-        baseline=baseline,
-        batch_size=50000,
-        max_path_length=10,
-        n_itr=100,
-        discount=0.99,
-        step_size=0.01,
-        optimizer=optimizer,
-)
+def run_experiment(params):
+    base_params = copy.copy(DEFAULTS)
+    base_params.update(params)
+    params = base_params
 
-run_experiment_lite(
-        algo.train(),
-        n_parallel=5,
-        snapshot_mode="last",
-        log_dir="./log/grid_world",
-)
+    policy = RecurrentCategoricalPolicy(
+            name="policy",
+            env_spec=env.spec,
+            hidden_dim=praams["policy_hidden_dim"],
+            feature_network=MLPNetworkWithEmbeddings(
+                "feature_network", env.observation_space.flat_dim,
+                params["feature_dim"], params["feature_hidden_dim"],
+                tf.tanh, tf.tanh, agent.vocab_size, params["embedding_dim"]),
+            state_include_action=False,
+    )
+
+    optimizer = ConjugateGradientOptimizer(hvp_approach=FiniteDifferenceHvp(base_eps=1e-5))
+
+    algo = TRPO(
+            env=env,
+            policy=policy,
+            baseline=baseline,
+            batch_size=params["batch_size"],
+            max_path_length=10,
+            n_itr=params["n_itr"],
+            discount=0.99,
+            step_size=params["step_size"],
+            optimizer=optimizer,
+    )
+
+    run_experiment_lite(
+            algo.train(),
+            n_parallel=5,
+            snapshot_mode="last",
+            exp_prefix="grid_world",
+            variant=params,
+    )
+
+run_experiment({})
