@@ -276,13 +276,15 @@ class SlaveGridWorldEnv(GridWorldEnv):
 
         observation = np.zeros((len(self.INCREMENTS), self.N_TYPES))
         for i, increment in enumerate(self.INCREMENTS):
-            neighbor_coords = coords + increment
+            neighbor_coords = np.clip(
+                    coords + increment,
+                    [0, 0],
+                    [self.n_row - 1, self.n_col - 1]
+            )
+
             try:
                 cell_type = self.map_desc[neighbor_coords[0], neighbor_coords[1]]
                 cell_type = self.CELL_TYPE_IDS[cell_type]
-            except IndexError:
-                # Out of bounds.
-                continue
             except KeyError:
                 # Not a cell type we are tracking.
                 continue
