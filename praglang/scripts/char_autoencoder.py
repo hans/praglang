@@ -32,8 +32,8 @@ env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"))
 
 DEFAULTS = {
     "batch_size": 5000,
-    "n_itr": 50,
-    "step_size": 0.01,
+    "n_itr": 100,
+    "step_size": 0.001,
     "policy_hidden_dim": 128,
     "embedding_dim": 32,
     "feature_dim": 128,
@@ -84,4 +84,5 @@ def run_experiment(params):
 
 
 if __name__ == "__main__":
-    run_experiment({})
+    for batch_size in [1000,5000,10000,50000]:
+        run_experiment({"batch_size": batch_size})
