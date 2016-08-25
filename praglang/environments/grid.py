@@ -127,19 +127,23 @@ class GridWorldEnv(Env, Serializable):
         self.desc_str = desc_str
         # Map will be loaded in `self.reset`
 
-        sample_map = MAPS[self.desc_str]
-        if isinstance(sample_map[0], list):
-            sample_map = sample_map[0]
-        self.n_row, self.n_col = np.array(map(list, sample_map)).shape
+        self.n_row, self.n_col = np.array(map(list, self._fetch_map())).shape
 
         self.state = None
         self.domain_fig = None
 
-    def reset(self):
-        fetched_map = MAPS[self.desc_str]
-        if isinstance(fetched_map[0], list):
+    def _fetch_map(self):
+        if isinstance(self.desc_str, list):
+            return self.desc_str
+
+        sample_map = MAPS[self.desc_str]
+        if isinstance(sample_map[0], list):
             # We've fetched a list of maps. Sample one.
-            fetched_map = random.choice(fetched_map)
+            sample_map = random.choice(sample_map)
+        return sample_map
+
+    def reset(self):
+        fetched_map = self._fetch_map()
 
         self.map_desc = np.array(map(list, fetched_map))
         assert self.map_desc.shape == (self.n_row, self.n_col)
