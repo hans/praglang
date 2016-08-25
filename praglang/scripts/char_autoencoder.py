@@ -78,7 +78,7 @@ def run_experiment(params):
             algo.train(),
             n_parallel=5,
             snapshot_mode="last",
-            exp_prefix="autoenc_uniform_sample",
+            exp_prefix="autoenc_unnorm_reward",
             variant=params,
     )
 
