@@ -38,7 +38,7 @@ stub(globals())
 EMBEDDING_DIM = 32
 
 grid_world = SlaveGridWorldEnv("walled_chain")
-agent = GridWorldMasterAgent()
+agent = GridWorldMasterAgent(grid_world)
 env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
 baseline = LinearFeatureBaseline(env)
 

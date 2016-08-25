@@ -127,7 +127,7 @@ class GridWorldEnv(Env, Serializable):
         self.desc_str = desc_str
         # Map will be loaded in `self.reset`
 
-        self.n_row, self.n_col = np.array(map(list, self._fetch_map())).shape
+        self.n_col, self.n_row = np.array(map(list, self._fetch_map())).shape
 
         self.state = None
         self.domain_fig = None
@@ -145,51 +145,33 @@ class GridWorldEnv(Env, Serializable):
     def reset(self):
         fetched_map = self._fetch_map()
 
-        self.map_desc = np.array(map(list, fetched_map))
+        self.map_desc = np.array(map(list, fetched_map)).T
         assert self.map_desc.shape == (self.n_row, self.n_col)
         (start_x,), (start_y,) = np.nonzero(self.map_desc == "S")
-        self.start_state = start_x * self.n_col + start_y
+        self.start_state = np.array([start_x, start_y])
 
         (goal_x,), (goal_y,) = np.nonzero(self.map_desc == "G")
-        self.goal_state = goal_x * self.n_col + goal_y
+        self.goal_state = np.array([goal_x, goal_y])
 
         self.state = self.start_state
         return self.get_observation()
 
-    @staticmethod
-    def action_from_direction(d):
-        """
-        Return the action corresponding to the given direction. This is a helper method for debugging and testing
-        purposes.
-        :return: the action index corresponding to the given direction
-        """
-        return dict(
-            left=0,
-            down=1,
-            right=2,
-            up=3
-        )[d]
+    actions = [[-1,  0], # west
+               [ 1,  0], # east
+               [ 0, -1], # south
+               [ 0,  1]] # north
+    actions = np.array(actions)
 
     def step(self, action):
         """
-        action map:
-        0: left
-        1: down
-        2: right
-        3: up
         :param action: should be a one-hot vector encoding the action
         :return:
         """
-        possible_next_states = self.get_possible_next_states(self.state, action)
+        next_state = self.get_next_state(self.state, action)
 
-        probs = [x[1] for x in possible_next_states]
-        next_state_idx = np.random.choice(len(probs), p=probs)
-        next_state = possible_next_states[next_state_idx][0]
-
-        next_x = next_state / self.n_col
-        next_y = next_state % self.n_col
-
+        next_x, next_y = next_state
         next_state_type = self.map_desc[next_x, next_y]
+
         if next_state_type == 'H':
             done = True
             reward = 0
@@ -205,43 +187,44 @@ class GridWorldEnv(Env, Serializable):
 
         return Step(observation=self.get_observation(), reward=reward, done=done)
 
-    def get_possible_next_states(self, state, action):
+    def get_next_state(self, state, action):
         """
-        Given the state and action, return a list of possible next states and their probabilities. Only next states
-        with nonzero probabilities will be returned
+        Given the state and action, return the next state.
         :param state: start state
-        :param action: action
+        :param action: action (int or ndarray increment)
         :return: a list of pairs (s', p(s'|s,a))
         """
 
-        x = state / self.n_col
-        y = state % self.n_col
-        coords = np.array([x, y])
+        if isinstance(action, int):
+            action = self.actions[action]
 
-        increments = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
-        next_coords = np.clip(
-            coords + increments[action],
+        x, y = state
+
+        next_state = np.clip(
+            state + action,
             [0, 0],
             [self.n_row - 1, self.n_col - 1]
         )
-        next_state = next_coords[0] * self.n_col + next_coords[1]
+
         state_type = self.map_desc[x, y]
-        next_state_type = self.map_desc[next_coords[0], next_coords[1]]
+        next_state_type = self.map_desc[next_state[0], next_state[1]]
+
         if next_state_type == 'W' or state_type == 'H' or state_type == 'G':
-            return [(state, 1.)]
+            return state
         else:
-            return [(next_state, 1.)]
+            return next_state
 
     @property
     def action_space(self):
-        return Discrete(4)
+        return Discrete(len(self.actions))
 
     @property
     def observation_space(self):
         return Discrete(self.n_row * self.n_col)
 
     def get_observation(self):
-        return self.state
+        x, y = self.state
+        return self.y * self.n_col + self.x
 
 
 class SlaveGridWorldEnv(GridWorldEnv):
@@ -261,23 +244,19 @@ class SlaveGridWorldEnv(GridWorldEnv):
     }
     N_TYPES = len(CELL_TYPE_IDS)
 
-    # Directions from which to read neighbor cell data
-    INCREMENTS = np.array([[0, -1], [1, 0], [0, 1], [-1, 0]])
-
     @property
     def observation_space(self):
         return Box(low=0., high=1.,
-                   shape=(len(self.INCREMENTS), self.N_TYPES))
+                   shape=(len(self.actions), self.N_TYPES))
 
     def get_observation(self):
         # Get state of cells in immediate surrounding.
-        x, y = self.state / self.n_col, self.state % self.n_col
-        coords = np.array([x, y])
+        x, y = self.state
 
-        observation = np.zeros((len(self.INCREMENTS), self.N_TYPES))
-        for i, increment in enumerate(self.INCREMENTS):
+        observation = np.zeros((len(self.actions), self.N_TYPES))
+        for i, increment in enumerate(self.actions):
             neighbor_coords = np.clip(
-                    coords + increment,
+                    self.state + increment,
                     [0, 0],
                     [self.n_row - 1, self.n_col - 1]
             )
