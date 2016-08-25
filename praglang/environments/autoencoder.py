@@ -52,8 +52,11 @@ class BagAutoencoderEnvironment(Env):
                                    sum(path["rewards"])))
 
     def reset(self):
-        # Sample length, then randomly pick chars.
-        length = np.random.randint(1, self.max_length + 1)
+        # Sample length s.t. we have a uniform probability over all sequences
+        lengths = np.arange(1, self.max_length + 1)
+        num_seqs = np.power(len(self.vocab), lengths)
+        probs = num_seqs / num_seqs.sum().astype(np.float32)
+        length = np.random.choice(lengths, p=probs)
 
         input_val = np.zeros((len(self.vocab),))
         idxs = np.random.choice(len(self.vocab), replace=False, size=length)
