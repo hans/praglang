@@ -194,6 +194,11 @@ class GridWorldEnv(Env, Serializable):
 
         return Step(observation=self.get_observation(), reward=reward, done=done)
 
+    def bounded_increment(self, state, increment):
+        return np.clip(state + increment,
+                       [0, 0],
+                       [self.n_row - 1, self.n_col - 1])
+
     def get_next_state(self, state, action):
         """
         Given the state and action, return the next state.
@@ -203,15 +208,12 @@ class GridWorldEnv(Env, Serializable):
         """
 
         if isinstance(action, int):
-            action = self.actions[action]
+            increment = self.actions[action]
+        else:
+            increment = action
 
         x, y = state
-
-        next_state = np.clip(
-            state + action,
-            [0, 0],
-            [self.n_row - 1, self.n_col - 1]
-        )
+        next_state = self.bounded_increment(state, increment)
 
         state_type = self.map_desc[x, y]
         next_state_type = self.map_desc[next_state[0], next_state[1]]

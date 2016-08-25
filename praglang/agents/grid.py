@@ -60,7 +60,7 @@ class GridWorldMasterAgent(Agent):
 
             valid_directions = []
             for direction, increment in self.directions.items():
-                cell_coords = env.get_next_state(slave_coords, increment)
+                cell_coords = env.bounded_increment(slave_coords, increment)
                 try:
                     cell_type = env.map_desc[cell_coords[0], cell_coords[1]]
                 except IndexError:
@@ -85,7 +85,7 @@ class GridWorldMasterAgent(Agent):
             increment = self.directions.get(direction, None)
             if increment is not None:
                 # Calculate indicated point on map and retrieve the cell type
-                point_coords = env.get_next_state(slave_coords, increment)
+                point_coords = env.bounded_increment(slave_coords, increment)
                 point_type = env.map_desc[point_coords[0], point_coords[1]]
 
                 if point_type == "W":
