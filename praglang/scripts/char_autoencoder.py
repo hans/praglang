@@ -27,7 +27,7 @@ stub(globals())
 LENGTH = 5
 VOCAB = list("abcdefghijklmnopqrstuvwxyz")
 
-env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"), normalize_reward=True)
+env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"))
 
 
 DEFAULTS = {
@@ -78,7 +78,7 @@ def run_experiment(params):
             algo.train(),
             n_parallel=5,
             snapshot_mode="last",
-            exp_prefix="autoenc_new",
+            exp_prefix="autoenc_unnorm_reward",
             variant=params,
     )
 
