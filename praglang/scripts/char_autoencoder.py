@@ -32,9 +32,9 @@ env = normalize(BagAutoencoderEnvironment(VOCAB, LENGTH, "autoenc"))
 
 DEFAULTS = {
     "batch_size": 5000,
-    "n_itr": 100,
+    "n_itr": 500,
     "step_size": 0.001,
-    "policy_hidden_dim": 128,
+    "policy_hidden_dims": (128,),
     "embedding_dim": 32,
     "feature_dim": 128,
     "feature_hidden_dims": (),
@@ -50,7 +50,7 @@ def run_experiment(params):
     policy = RecurrentCategoricalPolicy(
             name="policy",
             env_spec=env.spec,
-            hidden_dim=params["policy_hidden_dim"],
+            hidden_dims=params["policy_hidden_dims"],
             feature_network=MLPNetworkWithEmbeddings(
                 "embeddings", len(VOCAB), params["feature_dim"],
                 params["feature_hidden_dims"], tf.tanh, tf.tanh, len(VOCAB),

@@ -46,7 +46,7 @@ DEFAULTS = {
     "batch_size": 50000,
     "n_itr": 100,
     "step_size": 0.01,
-    "policy_hidden_dim": 128,
+    "policy_hidden_dims": (128,),
     "embedding_dim": 32,
     "feature_dim": 128,
     "feature_hidden_dims": (128,),
@@ -62,7 +62,7 @@ def run_experiment(params):
     policy = RecurrentCategoricalPolicy(
             name="policy",
             env_spec=env.spec,
-            hidden_dim=params["policy_hidden_dim"],
+            hidden_dims=params["policy_hidden_dims"],
             feature_network=MLPNetworkWithEmbeddings(
                 "feature_network", env.observation_space.flat_dim,
                 params["feature_dim"], params["feature_hidden_dims"],
