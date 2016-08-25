@@ -202,7 +202,11 @@ class SituatedConversationEnvironment(Env):
                 just_sent = False
 
             if action < self._env.action_space.n:
-                l("A took action %i" % action)
+                if hasattr(self._env, "action_names"):
+                    action_name = self._env.action_names[action]
+                else:
+                    action_name = str(action)
+                l("A took action \"%s\"" % action_name)
             elif action < self._env.action_space.n + self.vocab_size:
                 char = self.vocab[action - self._env.action_space.n]
                 l("A: %s" % char)

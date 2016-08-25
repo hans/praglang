@@ -167,6 +167,7 @@ class GridWorldEnv(Env, Serializable):
                [ 0, -1], # south
                [ 0,  1]] # north
     actions = np.array(actions)
+    action_names = ["west", "east", "south", "north"]
 
     def step(self, action):
         """
