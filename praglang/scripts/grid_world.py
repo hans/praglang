@@ -35,21 +35,17 @@ from praglang.util import MLPNetworkWithEmbeddings
 
 stub(globals())
 
-EMBEDDING_DIM = 32
-
-grid_world = SlaveGridWorldEnv("walled_chain")
-agent = GridWorldMasterAgent(grid_world)
-env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
-baseline = LinearFeatureBaseline(env)
-
 DEFAULTS = {
     "batch_size": 50000,
     "n_itr": 100,
     "step_size": 0.01,
-    "policy_hidden_dims": (128,),
+    "policy_hidden_dims": (128,128),
     "embedding_dim": 32,
     "feature_dim": 128,
     "feature_hidden_dims": (128,),
+
+    "match_reward": 1.0, # reward for valid utterance
+    "goal_reward": 10.0, # reward for reaching goal
 }
 
 config.LOG_DIR = "./log"
@@ -58,6 +54,11 @@ def run_experiment(params):
     base_params = copy.copy(DEFAULTS)
     base_params.update(params)
     params = base_params
+
+    grid_world = SlaveGridWorldEnv("walled_chain", goal_reward=params["goal_reward"])
+    agent = GridWorldMasterAgent(grid_world, match_reward=params["match_reward"])
+    env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
+    baseline = LinearFeatureBaseline(env)
 
     policy = RecurrentCategoricalPolicy(
             name="policy",
