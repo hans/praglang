@@ -89,10 +89,10 @@ class GridWorldMasterAgent(Agent):
                 if point_type == "W":
                     env.map_desc[point_coords[0], point_coords[1]] = "F"
                     response = direction
-                # else:
-                #     # Slave asked for a wall destruction when there was no wall
-                #     # in the specified direction.
-                #     reward -= 0.5 * self.match_reward
+                else:
+                    # Slave asked for a wall destruction when there was no wall
+                    # in the specified direction.
+                    matched = False
 
         if matched:
             reward += self.match_reward
