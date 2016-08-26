@@ -90,7 +90,7 @@ def run_experiment(**params):
             algo.train(),
             n_parallel=15,
             snapshot_mode="last",
-            exp_prefix="grid_world_sweep2",
+            exp_prefix="grid_world_sweep3",
             variant=params,
     )
 
