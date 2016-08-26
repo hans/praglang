@@ -37,7 +37,7 @@ stub(globals())
 
 DEFAULTS = {
     "batch_size": 50000,
-    "n_itr": 100,
+    "n_itr": 500,
     "step_size": 0.01,
     "policy_hidden_dims": (128,128),
     "embedding_dim": 32,
@@ -50,7 +50,7 @@ DEFAULTS = {
 
 config.LOG_DIR = "./log"
 
-def run_experiment(params):
+def run_experiment(**params):
     base_params = copy.copy(DEFAULTS)
     base_params.update(params)
     params = base_params
@@ -87,10 +87,24 @@ def run_experiment(params):
 
     run_experiment_lite(
             algo.train(),
-            n_parallel=5,
+            n_parallel=15,
             snapshot_mode="last",
             exp_prefix="grid_world_sweep",
             variant=params,
     )
 
-run_experiment({})
+
+# Sweep with some random hyperparameters until killed.
+while True:
+    batch_size = np.random.choice([50000, 100000])
+    n_itr = 500 if batch_size == 50000 else 250
+    match_reward = np.random.uniform(0.0, 5.0)
+    goal_reward = np.random.uniform(1.0, 20.0)
+
+    if goal_reward < match_reward:
+        # Reject; this would be a weird setup
+        continue
+
+    run_experiment(batch_size=batch_size, n_itr=n_itr,
+                   match_reward=match_reward,
+                   goal_reward=goal_reward)
