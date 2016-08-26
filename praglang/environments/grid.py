@@ -14,8 +14,8 @@ MAPS = {
     "lopsided_chain": [
         # very easy to solve if you just ask your mother which direction the
         # goal is!
-        ["GFFFFFFFFFFFFSFFFFFFFFFFFFFF"],
-        ["FFFFFFFFFFFFFSFFFFFFFFFFFFFG"],
+        ["GFFFFSFFFFF"],
+        ["FFFFFSFFFFG"],
     ],
     "walled_chain": [
         [
