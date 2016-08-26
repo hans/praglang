@@ -46,13 +46,11 @@ class MeanPoolEmbeddingLayer(L.Layer):
         return (input_shape[0], self.output_dim)
 
     def get_output_for(self, input, **kwargs):
-        if input.get_shape().ndims > 2:
-            # if the input has more than two dimensions, flatten it into a
-            # batch of feature vectors.
-            input = tf.reshape(input, tf.pack([tf.shape(input)[0], -1]))
+        # Mean-pool denominator
+        scale = tf.reduce_sum(input, -1, keep_dims=True) + 1e-5
 
         activation = tf.matmul(input, self.W_emb)
-        activation /= tf.reduce_sum(input, 1, keep_dims=True) + 1e-5
+        activation /= scale
 
         return activation
 
