@@ -14,6 +14,7 @@ make `A`'s task easier.
 
 import copy
 
+import numpy as np
 import tensorflow as tf
 
 from rllab import config
