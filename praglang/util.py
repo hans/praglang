@@ -82,7 +82,7 @@ class MLPNetworkWithEmbeddings(LayersPowered, Serializable):
             if has_other_input:
                 # Slice apart
                 l_other_in = L.SliceLayer(l_in, "slice_other",
-                                        slice(0, input_dim - vocab_size + 1),
+                                        slice(0, input_dim - vocab_size),
                                         axis=-1)
                 l_emb_in = L.SliceLayer(l_in, "slice_emb",
                                         slice(input_dim - vocab_size, input_dim),
