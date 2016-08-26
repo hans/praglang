@@ -38,13 +38,12 @@ class GridWorldMasterAgent(Agent):
         self._env = env
         self.match_reward = match_reward
         assert len(env.actions) == 4
-        self.directions = dict(zip(["w", "e", "n", "s"], env.actions))
+        self.directions = dict(zip(["w", "e", "s", "n"], env.actions))
 
     def __call__(self, env, message):
         assert isinstance(env, GridWorldEnv)
         assert env == self._env
 
-        # TODO: Handle padding / stop token?
         message_str = "".join(self.vocab[idx] for idx in message)
 
         response = ""
