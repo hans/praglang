@@ -116,40 +116,6 @@ class MLPNetworkWithEmbeddings(LayersPowered, Serializable):
             LayersPowered.__init__(self, l_out)
 
 
-class DeepGRUStepLayer(L.MergeLayer):
-
-    """
-    Run a single step of a deep GRU.
-    """
-
-    def __init__(self, l_step_input, l_step_prev_hiddens, l_grus, name="deep_gru_step"):
-        assert len(l_step_prev_hiddens) == len(l_grus)
-
-        incomings = [l_step_input] + l_step_prev_hiddens
-        super(DeepGRUStepLayer, self).__init__(incomings, name)
-        self._l_grus = l_grus
-
-    def get_params(self, **tags):
-        ret = itertools.chain.from_iterable(l_gru.get_params(**tags) for l_gru in self._l_grus)
-
-    def get_output_shape_for(self, input_shapes):
-        n_batch = input_shapes[0]
-        return n_batch, self._l_grus[-1].num_units
-
-    def get_output_for(self, inputs, **kwargs):
-        x = inputs[0]
-        hprevs = inputs[1:]
-
-        n_batch = tf.shape(x)[0]
-        x = tf.reshape(x, tf.pack((n_batch, -1)))
-
-        input_val = x
-        for hprev, l_gru in zip(hprevs, self._l_grus):
-            input_val = l_gru.step(hprev, input_val)
-
-        return input_val
-
-
 class DeepGRUNetwork(object):
     """
     Multilayer extension of `rllab.core.network.GRUNetwork`
