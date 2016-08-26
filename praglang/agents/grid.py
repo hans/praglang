@@ -40,6 +40,9 @@ class GridWorldMasterAgent(Agent):
         assert len(env.actions) == 4
         self.directions = dict(zip(["w", "e", "s", "n"], env.actions))
 
+    def reset(self):
+        self.received_where_query = False
+
     def __call__(self, env, message):
         assert isinstance(env, GridWorldEnv)
         assert env == self._env
@@ -54,7 +57,8 @@ class GridWorldMasterAgent(Agent):
 
         # Just hard mapping for now. Yep.
         if message_str.startswith("h"):
-            matched = True
+            matched = not self.received_where_query
+            self.received_where_query = True
 
             valid_directions = []
             for direction, increment in self.directions.items():

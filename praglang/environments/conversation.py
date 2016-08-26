@@ -10,7 +10,7 @@ from sandbox.rocky.tf.spaces.discrete import Discrete
 from sandbox.rocky.tf.spaces.product import Product
 
 from praglang.agents.grid import GridWorldMasterAgent
-from praglang.environments.grid import GridWorldEnv
+from praglang.environments.grid import SlaveGridWorldEnv
 from praglang.spaces import DiscreteSequence, DiscreteBinaryBag
 
 
@@ -58,9 +58,9 @@ class SituatedConversationEnvironment(Env):
         super(SituatedConversationEnvironment, self).__init__(*args, **kwargs)
 
         if env is None:
-            env = GridWorldEnv("walled_chain")
+            env = SlaveGridWorldEnv("walled_chain")
         if b_agent is None:
-            b_agent = GridWorldMasterAgent()
+            b_agent = GridWorldMasterAgent(env)
 
         assert isinstance(env.action_space, Discrete)
         self._env = env
@@ -96,6 +96,9 @@ class SituatedConversationEnvironment(Env):
         return self._action_space
 
     def reset(self):
+        # Reset agent.
+        self._b_agent.reset()
+
         # Reset tracking state.
         self._message = []
         self._sent, self._received = [], []

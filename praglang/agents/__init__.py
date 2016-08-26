@@ -24,6 +24,12 @@ class Agent(object):
         """
         raise NotImplementedError
 
+    def reset(self):
+        """
+        Reset the agent for a new environment instance.
+        """
+        pass
+
     def __call__(self, environment, message):
         """
         Respond to a message, which is a sequence of tokens from this agent's

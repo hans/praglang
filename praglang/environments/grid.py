@@ -233,7 +233,7 @@ class GridWorldEnv(Env, Serializable):
 
     def get_observation(self):
         x, y = self.state
-        return self.y * self.n_col + self.x
+        return y * self.n_col + x
 
 
 class SlaveGridWorldEnv(GridWorldEnv):
