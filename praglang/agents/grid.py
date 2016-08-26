@@ -19,14 +19,12 @@ class GridWorldMasterAgent(Agent):
     words = [
         # Expected receive messages
         "h", # where to go?
-        "wn", "ws",
-        "we", "ww", # destroy walls in a certain direction
+        "n", "s",
+        "e", "w", # destroy walls in a certain direction
 
         # Expected send/receive messages
         "n", "s",
         "e", "w", # point in direction
-        "wn", "ws",
-        "we", "ww", # notify that wall has been destroyed
     ]
 
     # Vocabulary: all characters in possible valid words
@@ -79,10 +77,10 @@ class GridWorldMasterAgent(Agent):
 
             best_direction = min(valid_directions, key=lambda (d, v): v)[0]
             response = best_direction
-        elif message_str.startswith("w") and len(message_str) >= 2:
+        elif message_str.startswith(tuple(self.directions.keys())):
             matched = True
 
-            direction = message_str[1]
+            direction = message_str[0]
             increment = self.directions.get(direction, None)
             if increment is not None:
                 # Calculate indicated point on map and retrieve the cell type
