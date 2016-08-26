@@ -48,21 +48,21 @@ MAPS = {
         ],
     ],
     "3x3": [
-        [
-            "FFF",
-            "FSF",
-            "FFG",
-        ],
+        # [
+        #     "FFF",
+        #     "FSF",
+        #     "FFG",
+        # ],
         [
             "FFF",
             "FSF",
             "FGF",
         ],
-        [
-            "FFF",
-            "FSF",
-            "GFF",
-        ],
+        # [
+        #     "FFF",
+        #     "FSF",
+        #     "GFF",
+        # ],
         [
             "FFF",
             "FSG",
@@ -73,21 +73,21 @@ MAPS = {
             "GSF",
             "FFF",
         ],
-        [
-            "FFG",
-            "FSF",
-            "FFF",
-        ],
+        # [
+        #     "FFG",
+        #     "FSF",
+        #     "FFF",
+        # ],
         [
             "FGF",
             "FSF",
             "FFF",
         ],
-        [
-            "GFF",
-            "FSF",
-            "FFF",
-        ],
+        # [
+        #     "GFF",
+        #     "FSF",
+        #     "FFF",
+        # ],
     ],
     "4x4_safe": [
         "SFFF",
