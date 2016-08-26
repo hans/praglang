@@ -128,7 +128,7 @@ class GridWorldEnv(Env, Serializable):
 
     """
 
-    def __init__(self, desc_str='4x4'):
+    def __init__(self, desc_str='4x4', goal_reward=10.0):
         Serializable.quick_init(self, locals())
         self.desc_str = desc_str
         # Map will be loaded in `self.reset`
@@ -136,7 +136,7 @@ class GridWorldEnv(Env, Serializable):
         self.n_col, self.n_row = np.array(map(list, self._fetch_map())).shape
 
         self.state = None
-        self.domain_fig = None
+        self.goal_reward = goal_reward
 
     def _fetch_map(self):
         if isinstance(self.desc_str, list):
@@ -187,7 +187,7 @@ class GridWorldEnv(Env, Serializable):
             reward = 0
         elif next_state_type == 'G':
             done = True
-            reward = 25
+            reward = self.goal_reward
         else:
             raise NotImplementedError
         self.state = next_state

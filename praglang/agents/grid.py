@@ -36,8 +36,9 @@ class GridWorldMasterAgent(Agent):
 
     num_tokens = max(len(word) for word in words)
 
-    def __init__(self, env):
+    def __init__(self, env, match_reward=1.0):
         self._env = env
+        self.match_reward = match_reward
         assert len(env.actions) == 4
         self.directions = dict(zip(["w", "e", "n", "s"], env.actions))
 
@@ -91,13 +92,14 @@ class GridWorldMasterAgent(Agent):
                 if point_type == "W":
                     env.map_desc[point_coords[0], point_coords[1]] = "F"
                     response = direction
-                else:
-                    # Slave asked for a wall destruction when there was no wall
-                    # in the specified direction.
-                    reward -= 0.5
+                # else:
+                #     # Slave asked for a wall destruction when there was no wall
+                #     # in the specified direction.
+                #     reward -= 0.5 * self.match_reward
 
         if matched:
-            reward += 1.0
+            reward += self.match_reward
+
         response = [self.token2idx[token] for token in response]
         return response, reward
 
