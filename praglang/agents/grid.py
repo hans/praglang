@@ -56,7 +56,7 @@ class GridWorldMasterAgent(Agent):
         slave_coords = env.state
 
         # Just hard mapping for now. Yep.
-        if message_str == "h":
+        if message_str.startswith("h"):
             matched = True
 
             valid_directions = []
