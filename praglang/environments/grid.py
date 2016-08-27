@@ -178,25 +178,18 @@ class GridWorldEnv(Env, Serializable):
         x, y = state
         state_type = self.map_desc[x, y]
 
-        # Calculate Manhattan distance from goal state.
-        distance = np.abs(state - self.goal_state).sum()
-        # Calculate distance between start state and goal state.
-        start_distance = np.abs(self.start_state - self.goal_state).sum()
+        # # Calculate Manhattan distance from goal state.
+        # distance = np.abs(state - self.goal_state).sum()
+        # # Calculate distance between start state and goal state.
+        # start_distance = np.abs(self.start_state - self.goal_state).sum()
 
-        # Improvement: relative change in distance since start. May be negative!
-        improvement = (start_distance - distance) / float(start_distance)
-        # Scale relative to goal reward
-        reward = self.goal_reward * improvement
+        # # Improvement: relative change in distance since start. May be negative!
+        # improvement = (start_distance - distance) / float(start_distance)
 
-        if state_type == 'H':
-            return reward, True
-        else:
-            if state_type not in ['F', 'S', 'G']:
-                raise NotImplementedError
-            if state_type == 'G':
-                assert reward == self.goal_reward
-            return reward, False
+        reward = self.goal_reward if state_type == 'G'
+        done = state_type in ['G', 'H']
 
+        return reward, done
 
     actions = [[-1,  0], # west
                [ 1,  0], # east
