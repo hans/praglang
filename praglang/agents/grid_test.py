@@ -58,8 +58,19 @@ def test_wall():
         a = GridWorldMasterAgent(e)
         a.reset()
 
-        query = [a.token2idx[t] for t in query]
-        response, _ = a(e, query)
-
+        # Test this valid query
+        query_idxs = [a.token2idx[t] for t in query]
+        response, reward = a(e, query_idxs)
         np.testing.assert_array_equal(e.map_desc, np.array(map(list, result)))
+        assert reward == a.match_reward
 
+        for other_query in a.directions.keys():
+            if other_query == query: continue
+            e.reset()
+            a.reset()
+
+            other_query_idxs = [a.token2idx[t] for t in other_query]
+            response, reward = a(e, other_query_idxs)
+
+            np.testing.assert_array_equal(e.map_desc, np.array(map(list, map_start)))
+            assert reward == 0.0

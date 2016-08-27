@@ -91,8 +91,19 @@ class GridWorldMasterAgent(Agent):
                 point_type = env.map_desc[point_coords[0], point_coords[1]]
 
                 if point_type == "W":
-                    env.map_desc[point_coords[0], point_coords[1]] = "F"
-                    response = direction
+                    # Only match if destroying the wall actually helps us reach
+                    # our goal in the map.
+                    #
+                    # TODO: Assumes a simple map in which destroying a wall can
+                    # only be beneficial if, after moving into that spot, we've
+                    # made an improvement w.r.t. distance from the goal.
+                    delta = env.get_improvement(point_coords) \
+                            - env.get_improvement(slave_coords)
+                    if delta >= 0:
+                        env.map_desc[point_coords[0], point_coords[1]] = "F"
+                        response = direction
+                    else:
+                        matched = False
                 else:
                     # Slave asked for a wall destruction when there was no wall
                     # in the specified direction.

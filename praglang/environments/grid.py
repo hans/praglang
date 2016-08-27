@@ -164,6 +164,23 @@ class GridWorldEnv(Env, Serializable):
 
         return self.get_observation()
 
+    def get_improvement(self, state):
+        """
+        Calculate improvement of state relative to start state.
+
+        In this environment, "improvement" is the relative decrease in distance
+        to the goal from the start state. This may be negative, in which case
+        the given state is worse than the start state.
+        """
+
+        # Manhattan distance from goal state
+        distance = np.abs(state - self.goal_state).sum()
+        # Original Manhattan distance
+        start_distance = np.abs(self.start_state - self.goal_state).sum()
+
+        improvement = (start_distance - distance) / float(start_distance)
+        return improvement
+
     def get_reward(self, state=None):
         """
         Get the reward associated with moving into (or staying in) the given
@@ -186,13 +203,7 @@ class GridWorldEnv(Env, Serializable):
         # If we're at the final state in a trajectory (at goal or reached max),
         # final reward should represent relative distance from goal.
         if state_type == 'G' or will_terminate:
-            # Calculate Manhattan distance from goal state.
-            distance = np.abs(state - self.goal_state).sum()
-            # Calculate distance between start state and goal state.
-            start_distance = np.abs(self.start_state - self.goal_state).sum()
-
-            # Improvement: relative change in distance since start. May be negative!
-            improvement = (start_distance - distance) / float(start_distance)
+            improvement = self.get_improvement(state)
             reward = improvement * self.goal_reward
         else:
             reward = 0.0
