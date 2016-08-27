@@ -193,16 +193,19 @@ class SituatedConversationEnvironment(Env):
         l = log_fn
 
         actions, observations = path["actions"], path["observations"]
+        rewards = path["rewards"]
         just_sent = False
         a_message = []
 
-        for i, (observation, action) in enumerate(zip(observations, actions)):
+        for i, (observation, action, reward) in enumerate(zip(observations, actions, rewards)):
             wrapped_obs, received_message = self.observation_space.unflatten(observation)
             action = self.action_space.unflatten(action)
 
+            out_str = None
             if just_sent:
                 message_idxs = received_message.nonzero()[0]
-                l("B sent message \"%s\"" % "".join(self.vocab[idx] for idx in message_idxs))
+                l("B sent message \"%s\""
+                  % "".join(self.vocab[idx] for idx in message_idxs))
                 just_sent = False
 
             if action < self._env.action_space.n:
@@ -210,12 +213,14 @@ class SituatedConversationEnvironment(Env):
                     action_name = self._env.action_names[action]
                 else:
                     action_name = str(action)
-                l("A took action \"%s\"" % action_name)
+                out_str = "A took action \"%s\"" % action_name
             elif action < self._env.action_space.n + self.vocab_size:
                 char = self.vocab[action - self._env.action_space.n]
-                l("A: %s" % char)
+                out_str = "A: %s" % char
                 a_message.append(char)
             else:
-                l("A sent message \"%s\"" % "".join(a_message))
+                out_str = "A sent message \"%s\"" % "".join(a_message)
                 just_sent = True
                 a_message = []
+
+            l("%-25s\t% 5f" % (out_str, reward))
