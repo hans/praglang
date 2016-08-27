@@ -104,7 +104,7 @@ def run_experiment(**params):
 while True:
     batch_size = np.random.choice([50000, 100000])
     n_itr = 500 if batch_size == 50000 else 250
-    match_reward = np.random.uniform(0.0, 5.0)
+    match_reward = np.random.uniform(0.0, 3.0)
     goal_reward = np.random.uniform(1.0, 20.0)
 
     if goal_reward < match_reward:
