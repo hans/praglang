@@ -119,8 +119,8 @@ class SituatedConversationEnvironment(Env):
             action: A token sequence emitted by `A`.
         """
 
-        # Per-turn penalty
-        reward = -1
+        # Base environment reward + per-turn penalty
+        reward = self._env.get_reward() + -1.0
         done = False
 
         if action < self._env.action_space.n:
@@ -130,7 +130,8 @@ class SituatedConversationEnvironment(Env):
             wrapped_step = self._env.step(action)
             self._last_wrapped_obs = wrapped_step.observation
 
-            reward += wrapped_step.reward
+            # Override reward and done states from this env.
+            reward = wrapped_step.reward
             done = wrapped_step.done
         elif action < self._env.action_space.n + self.vocab_size:
             # Agent chose to output a token.

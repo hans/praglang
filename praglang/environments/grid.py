@@ -159,8 +159,44 @@ class GridWorldEnv(Env, Serializable):
         (goal_x,), (goal_y,) = np.nonzero(self.map_desc == "G")
         self.goal_state = np.array([goal_x, goal_y])
 
-        self.state = self.start_state
+        self.state = self.start_state.copy()
         return self.get_observation()
+
+    def get_reward(self, state=None):
+        """
+        Get the reward associated with moving into (or staying in) the given
+        state. If not provided, returns the reward for staying in the current
+        state by default.
+
+        Returns:
+            reward:
+            done:
+        """
+        if state is None:
+            state = self.state
+
+        x, y = state
+        state_type = self.map_desc[x, y]
+
+        # Calculate Manhattan distance from goal state.
+        distance = np.abs(state - self.goal_state).sum()
+        # Calculate distance between start state and goal state.
+        start_distance = np.abs(self.start_state - self.goal_state).sum()
+
+        # Improvement: relative change in distance since start. May be negative!
+        improvement = (start_distance - distance) / float(start_distance)
+        # Scale relative to goal reward
+        reward = self.goal_reward * improvement
+
+        if state_type == 'H':
+            return reward, True
+        else:
+            if state_type not in ['F', 'S', 'G']:
+                raise NotImplementedError
+            if state_type == 'G':
+                assert reward == self.goal_reward
+            return reward, False
+
 
     actions = [[-1,  0], # west
                [ 1,  0], # east
@@ -175,23 +211,9 @@ class GridWorldEnv(Env, Serializable):
         :return:
         """
         next_state = self.get_next_state(self.state, action)
+        reward, done = self.get_reward(next_state)
 
-        next_x, next_y = next_state
-        next_state_type = self.map_desc[next_x, next_y]
-
-        if next_state_type == 'H':
-            done = True
-            reward = 0
-        elif next_state_type in ['F', 'S']:
-            done = False
-            reward = 0
-        elif next_state_type == 'G':
-            done = True
-            reward = self.goal_reward
-        else:
-            raise NotImplementedError
         self.state = next_state
-
         return Step(observation=self.get_observation(), reward=reward, done=done)
 
     def bounded_increment(self, state, increment):
