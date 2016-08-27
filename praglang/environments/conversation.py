@@ -100,6 +100,7 @@ class SituatedConversationEnvironment(Env):
         self._b_agent.reset()
 
         # Reset tracking state.
+        self._timestep = 0
         self._message = []
         self._sent, self._received = [], []
 
@@ -127,7 +128,7 @@ class SituatedConversationEnvironment(Env):
             # Agent took an action in wrapped env.
             self._events.append((WRAPPED, action))
 
-            wrapped_step = self._env.step(action)
+            wrapped_step = self._env.step_wrapped(action, self._timestep)
             self._last_wrapped_obs = wrapped_step.observation
 
             # Override reward and done states from this env.
@@ -156,6 +157,7 @@ class SituatedConversationEnvironment(Env):
             self._message = []
 
         observation = (self._last_wrapped_obs, self._received[-1])
+        self._timestep += 1
         return Step(observation=observation, reward=reward, done=done)
 
     def render(self):

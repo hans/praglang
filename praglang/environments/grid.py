@@ -128,10 +128,10 @@ class GridWorldEnv(Env, Serializable):
 
     """
 
-    def __init__(self, desc_str='4x4', goal_reward=10.0):
+    def __init__(self, desc_str='4x4', max_traj_length=10, goal_reward=10.0):
         Serializable.quick_init(self, locals())
-        self.desc_str = desc_str
-        # Map will be loaded in `self.reset`
+        self.desc_str = desc_str # Map will be loaded in `self.reset`
+        self.max_traj_length = max_traj_length
 
         self.n_col, self.n_row = np.array(map(list, self._fetch_map())).shape
 
@@ -160,6 +160,8 @@ class GridWorldEnv(Env, Serializable):
         self.goal_state = np.array([goal_x, goal_y])
 
         self.state = self.start_state.copy()
+        self._traj_length = 0
+
         return self.get_observation()
 
     def get_reward(self, state=None):
@@ -178,17 +180,24 @@ class GridWorldEnv(Env, Serializable):
         x, y = state
         state_type = self.map_desc[x, y]
 
-        # # Calculate Manhattan distance from goal state.
-        # distance = np.abs(state - self.goal_state).sum()
-        # # Calculate distance between start state and goal state.
-        # start_distance = np.abs(self.start_state - self.goal_state).sum()
-
-        # # Improvement: relative change in distance since start. May be negative!
-        # improvement = (start_distance - distance) / float(start_distance)
-
-        reward = self.goal_reward if state_type == 'G'
         done = state_type in ['G', 'H']
+        will_terminate = done or self._traj_length == self.max_traj_length - 1
 
+        # If we're at the final state in a trajectory (at goal or reached max),
+        # final reward should represent relative distance from goal.
+        if state_type == 'G' or will_terminate:
+            # Calculate Manhattan distance from goal state.
+            distance = np.abs(state - self.goal_state).sum()
+            # Calculate distance between start state and goal state.
+            start_distance = np.abs(self.start_state - self.goal_state).sum()
+
+            # Improvement: relative change in distance since start. May be negative!
+            improvement = (start_distance - distance) / float(start_distance)
+            reward = improvement * self.goal_reward
+        else:
+            reward = 0.0
+
+        done = state_type in ['G', 'H']
         return reward, done
 
     actions = [[-1,  0], # west
@@ -207,7 +216,21 @@ class GridWorldEnv(Env, Serializable):
         reward, done = self.get_reward(next_state)
 
         self.state = next_state
+        self._traj_length += 1
+
         return Step(observation=self.get_observation(), reward=reward, done=done)
+
+    def step_wrapped(self, action, t):
+        """
+        Perform a step as a wrapped environment (where this env's time might
+        not correspond with actual time).
+
+        Args:
+            action:
+            t: Actual timestep, zero-based
+        """
+        self._traj_length = t
+        return self.step(action)
 
     def bounded_increment(self, state, increment):
         return np.clip(state + increment,
