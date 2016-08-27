@@ -133,7 +133,7 @@ class GridWorldEnv(Env, Serializable):
         self.desc_str = desc_str # Map will be loaded in `self.reset`
         self.max_traj_length = max_traj_length
 
-        self.n_col, self.n_row = np.array(map(list, self._fetch_map())).shape
+        self.n_row, self.n_col = np.array(map(list, self._fetch_map())).shape
 
         self.state = None
         self.goal_reward = goal_reward
@@ -151,7 +151,7 @@ class GridWorldEnv(Env, Serializable):
     def reset(self):
         fetched_map = self._fetch_map()
 
-        self.map_desc = np.array(map(list, fetched_map)).T
+        self.map_desc = np.array(map(list, fetched_map))
         assert self.map_desc.shape == (self.n_row, self.n_col)
         (start_x,), (start_y,) = np.nonzero(self.map_desc == "S")
         self.start_state = np.array([start_x, start_y])
@@ -200,10 +200,10 @@ class GridWorldEnv(Env, Serializable):
         done = state_type in ['G', 'H']
         return reward, done
 
-    actions = [[-1,  0], # west
-               [ 1,  0], # east
-               [ 0, -1], # south
-               [ 0,  1]] # north
+    actions = [[ 0, -1], # west
+               [ 0,  1], # east
+               [ 1,  0], # south
+               [-1,  0]] # north
     actions = np.array(actions)
     action_names = ["west", "east", "south", "north"]
 

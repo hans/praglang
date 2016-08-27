@@ -19,6 +19,7 @@ def test_where():
         e = SlaveGridWorldEnv(map)
         e.reset()
         a = GridWorldMasterAgent(e)
+        a.reset()
 
         query = "h"
         query = [a.token2idx[t] for t in query]
@@ -34,20 +35,31 @@ def test_wall():
               "GWSWF",
               "WWWWW",
               "WWWWW"],
-             "ww",
+             "w",
              ["WWWWW",
               "WWWWW",
               "GFSWF",
               "WWWWW",
+              "WWWWW"]),
+
+            (["WWGWW",
+              "WWWWW",
+              "WWSWW",
+              "WWWWW"],
+             "n",
+             ["WWGWW",
+              "WWFWW",
+              "WWSWW",
               "WWWWW"]),]
 
     for map_start, query, result in maps:
         e = SlaveGridWorldEnv(map_start)
         e.reset()
         a = GridWorldMasterAgent(e)
+        a.reset()
 
         query = [a.token2idx[t] for t in query]
         response, _ = a(e, query)
 
-        np.testing.assert_array_equal(e.map_desc, np.array(map(list, result)).T)
+        np.testing.assert_array_equal(e.map_desc, np.array(map(list, result)))
 
