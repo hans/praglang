@@ -13,6 +13,7 @@ make `A`'s task easier.
 """
 
 import copy
+from pprint import pprint
 
 import numpy as np
 import tensorflow as tf
@@ -38,6 +39,7 @@ stub(globals())
 
 DEFAULTS = {
     "batch_size": 50000,
+    "max_path_length": 10,
     "n_itr": 500,
     "step_size": 0.01,
     "policy_hidden_dims": (128,128),
@@ -55,8 +57,11 @@ def run_experiment(**params):
     base_params = copy.copy(DEFAULTS)
     base_params.update(params)
     params = base_params
+    pprint(params)
 
-    grid_world = SlaveGridWorldEnv("walled_chain", goal_reward=params["goal_reward"])
+    grid_world = SlaveGridWorldEnv("walled_chain",
+                                   max_traj_length=DEFAULTS["max_path_length"],
+                                   goal_reward=params["goal_reward"])
     agent = GridWorldMasterAgent(grid_world, match_reward=params["match_reward"])
     env = normalize(SituatedConversationEnvironment(env=grid_world, b_agent=agent))
     baseline = LinearFeatureBaseline(env)
@@ -79,7 +84,7 @@ def run_experiment(**params):
             policy=policy,
             baseline=baseline,
             batch_size=params["batch_size"],
-            max_path_length=10,
+            max_path_length=params["max_path_length"],
             n_itr=params["n_itr"],
             discount=0.99,
             step_size=params["step_size"],
